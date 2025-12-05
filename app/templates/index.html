@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Facturación</title>
+    <link rel="stylesheet" href="../static/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Navegación -->
+        <nav class="sidebar">
+            <div class="logo">
+                <h2>📊 SADI</h2>
+                <p>Sistema de Administración</p>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#" data-view="dashboard" class="nav-link active">
+                    <span class="icon">📈</span> Dashboard
+                </a></li>
+                <li><a href="#" data-view="empresas" class="nav-link">
+                    <span class="icon">🏢</span> Empresas
+                </a></li>
+                <li><a href="#" data-view="notificaciones" class="nav-link">
+                    <span class="icon">🔔</span> Notificaciones
+                </a></li>
+                <li><a href="#" data-view="triggers" class="nav-link">
+                    <span class="icon">⚙️</span> Configuración
+                </a></li>
+                <li><a href="#" data-view="formulario" class="nav-link">
+                    <span class="icon">➕</span> Nueva Empresa
+                </a></li>
+            </ul>
+        </nav>
+
+        <!-- Contenido principal -->
+        <main class="main-content">
+            <header class="header">
+                <h1 id="page-title">Dashboard</h1>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="refreshData()">🔄 Actualizar</button>
+                </div>
+            </header>
+
+            <!-- Vista Dashboard -->
+            <div id="view-dashboard" class="view active">
+                <div class="stats-grid" id="stats-container">
+                    <!-- Las estadísticas se cargarán aquí -->
+                </div>
+                <div class="charts-grid">
+                    <div class="card">
+                        <h3>Distribución por Estado</h3>
+                        <div id="chart-estados"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Vencimientos Próximos</h3>
+                        <div id="chart-vencimientos"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vista Empresas -->
+            <div id="view-empresas" class="view">
+                <div class="filters-bar">
+                    <input type="text" id="search-empresas" class="search-input" placeholder="🔍 Buscar por nombre o NIT...">
+                    <select id="filter-estado" class="filter-select">
+                        <option value="">Todos los estados</option>
+                        <option value="activo">Activo</option>
+                        <option value="inactivo">Inactivo</option>
+                        <option value="suspendido">Suspendido</option>
+                    </select>
+                </div>
+                <div class="table-container">
+                    <table class="data-table" id="empresas-table">
+                        <thead>
+                            <tr>
+                                <th>NIT</th>
+                                <th>Nombre</th>
+                                <th>Estado</th>
+                                <th>Certificado</th>
+                                <th>Resolución</th>
+                                <th>Documento</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="empresas-tbody">
+                            <!-- Las empresas se cargarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Vista Notificaciones -->
+            <div id="view-notificaciones" class="view">
+                <div class="notifications-container" id="notificaciones-container">
+                    <!-- Las notificaciones se cargarán aquí -->
+                </div>
+            </div>
+
+            <!-- Vista Triggers -->
+            <div id="view-triggers" class="view">
+                <div class="triggers-header">
+                    <button class="btn btn-primary" onclick="showTriggerModal()">➕ Nuevo Trigger</button>
+                </div>
+                <div class="triggers-container" id="triggers-container">
+                    <!-- Los triggers se cargarán aquí -->
+                </div>
+            </div>
+
+            <!-- Vista Formulario -->
+            <div id="view-formulario" class="view">
+                <div class="form-container">
+                    <form id="empresa-form" class="card">
+                        <h3>Información de la Empresa</h3>
+                        
+                        <div class="form-group">
+                            <label for="nit">NIT *</label>
+                            <input type="text" id="nit" name="nit" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="nombre">Nombre *</label>
+                            <input type="text" id="nombre" name="nombre" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="estado">Estado *</label>
+                            <select id="estado" name="estado" required>
+                                <option value="activo">Activo</option>
+                                <option value="inactivo">Inactivo</option>
+                                <option value="suspendido">Suspendido</option>
+                            </select>
+                        </div>
+
+                        <h3>Certificado</h3>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="tiene_certificado" name="tiene_certificado">
+                            <label for="tiene_certificado">Tiene certificado</label>
+                        </div>
+
+                        <div class="form-group" id="group-certificado" style="display: none;">
+                            <label for="fecha_vencimiento_certificado">Fecha de Vencimiento</label>
+                            <input type="date" id="fecha_vencimiento_certificado" name="fecha_vencimiento_certificado">
+                            
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="certificado_renovado" name="certificado_renovado">
+                                <label for="certificado_renovado">Renovado</label>
+                            </div>
+                            
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="certificado_facturado" name="certificado_facturado">
+                                <label for="certificado_facturado">Facturado</label>
+                            </div>
+                        </div>
+
+                        <h3>Resolución</h3>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="tiene_resolucion" name="tiene_resolucion">
+                            <label for="tiene_resolucion">Tiene resolución</label>
+                        </div>
+
+                        <div class="form-group" id="group-resolucion" style="display: none;">
+                            <label for="fecha_vencimiento_resolucion">Fecha de Vencimiento</label>
+                            <input type="date" id="fecha_vencimiento_resolucion" name="fecha_vencimiento_resolucion">
+                            
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="resolucion_renovado" name="resolucion_renovado">
+                                <label for="resolucion_renovado">Renovado</label>
+                            </div>
+                            
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="resolucion_facturado" name="resolucion_facturado">
+                                <label for="resolucion_facturado">Facturado</label>
+                            </div>
+                        </div>
+
+                        <h3>Documento</h3>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="tiene_documento" name="tiene_documento">
+                            <label for="tiene_documento">Tiene documento</label>
+                        </div>
+
+                        <div class="form-group" id="group-documento" style="display: none;">
+                            <label for="fecha_vencimiento_documento">Fecha de Vencimiento</label>
+                            <input type="date" id="fecha_vencimiento_documento" name="fecha_vencimiento_documento">
+                            
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="documento_renovado" name="documento_renovado">
+                                <label for="documento_renovado">Renovado</label>
+                            </div>
+                            
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="documento_facturado" name="documento_facturado">
+                                <label for="documento_facturado">Facturado</label>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">💾 Guardar</button>
+                            <button type="reset" class="btn btn-secondary">🔄 Limpiar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast para notificaciones -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Modal para Trigger -->
+    <div id="trigger-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeTriggerModal()">&times;</span>
+            <h2 id="trigger-modal-title">Nuevo Trigger</h2>
+            <form id="trigger-form">
+                <input type="hidden" id="trigger-id">
+                
+                <div class="form-group">
+                    <label for="trigger-nombre">Nombre *</label>
+                    <input type="text" id="trigger-nombre" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="trigger-descripcion">Descripción</label>
+                    <textarea id="trigger-descripcion" rows="2"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="trigger-frecuencia">Frecuencia *</label>
+                    <select id="trigger-frecuencia" required onchange="updateFrecuenciaFields()">
+                        <option value="diaria">Diaria</option>
+                        <option value="semanal">Semanal</option>
+                        <option value="mensual">Mensual</option>
+                        <option value="personalizada">Personalizada (horas)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="group-hora">
+                    <label for="trigger-hora">Hora de ejecución *</label>
+                    <input type="time" id="trigger-hora" value="08:00">
+                </div>
+
+                <div class="form-group" id="group-dias-semana" style="display: none;">
+                    <label>Días de la semana</label>
+                    <div class="checkbox-group-inline">
+                        <label><input type="checkbox" value="lunes"> Lunes</label>
+                        <label><input type="checkbox" value="martes"> Martes</label>
+                        <label><input type="checkbox" value="miercoles"> Miércoles</label>
+                        <label><input type="checkbox" value="jueves"> Jueves</label>
+                        <label><input type="checkbox" value="viernes"> Viernes</label>
+                        <label><input type="checkbox" value="sabado"> Sábado</label>
+                        <label><input type="checkbox" value="domingo"> Domingo</label>
+                    </div>
+                </div>
+
+                <div class="form-group" id="group-dia-mes" style="display: none;">
+                    <label for="trigger-dia-mes">Día del mes *</label>
+                    <input type="number" id="trigger-dia-mes" min="1" max="31" value="1">
+                </div>
+
+                <div class="form-group" id="group-intervalo" style="display: none;">
+                    <label for="trigger-intervalo">Intervalo (horas) *</label>
+                    <input type="number" id="trigger-intervalo" min="1" max="24" value="1">
+                </div>
+
+                <div class="form-group">
+                    <label for="trigger-destinatarios">Destinatarios (separados por comas) *</label>
+                    <textarea id="trigger-destinatarios" rows="2" required placeholder="correo1@ejemplo.com, correo2@ejemplo.com"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Prioridades a incluir</label>
+                    <div class="checkbox-group-inline">
+                        <label><input type="checkbox" value="CRITICA" checked> 🚨 Críticas</label>
+                        <label><input type="checkbox" value="ALTA" checked> ⚠️ Altas</label>
+                        <label><input type="checkbox" value="MEDIA" checked> ℹ️ Medias</label>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">💾 Guardar</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeTriggerModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../static/js/api.js"></script>
+    <script src="../static/js/dashboard.js"></script>
+    <script src="../static/js/empresas.js"></script>
+    <script src="../static/js/notificaciones.js"></script>
+    <script src="../static/js/triggers.js"></script>
+    <script src="../static/js/formulario.js"></script>
+    <script src="../static/js/main.js"></script>
+</body>
+</html>

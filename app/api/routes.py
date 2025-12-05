@@ -1,0 +1,749 @@
+"""
+Rutas de la API REST
+Contiene todos los endpoints de la API
+"""
+from typing import Dict, Any
+from fastapi import APIRouter, HTTPException, Query, Path, Body, status
+from fastapi.responses import JSONResponse
+from datetime import datetime
+
+from app.api.schemas import EmpresaRequest, ActualizarModuloRequest
+from app.models.empresa import Empresa, ModuloEmpresa
+from app.services.empresa_service import EmpresaService
+from app.services.estadisticas_service import EstadisticasService
+from app.services.notificacion_service import NotificacionService
+from app.services.email_service import EmailService
+from app.services.trigger_service import TriggerService
+
+
+# Crear routers
+router = APIRouter()
+info_router = APIRouter(tags=["Info"])
+empresas_router = APIRouter(prefix="/api/empresas", tags=["Empresas"])
+estadisticas_router = APIRouter(prefix="/api/estadisticas", tags=["Estadísticas"])
+notificaciones_router = APIRouter(prefix="/api/notificaciones", tags=["Notificaciones"])
+email_router = APIRouter(prefix="/api/email", tags=["Email"])
+triggers_router = APIRouter(prefix="/api/triggers", tags=["Triggers"])
+
+
+# Variables globales para servicios (se inicializarán desde api.py)
+empresa_service: EmpresaService = None
+stats_service: EstadisticasService = None
+notif_service: NotificacionService = None
+email_service: EmailService = None
+trigger_service: TriggerService = None
+
+
+def init_services(emp_service: EmpresaService, stat_service: EstadisticasService, notif_serv: NotificacionService, trig_service: TriggerService = None):
+    """Inicializa los servicios para las rutas"""
+    global empresa_service, stats_service, notif_service, email_service, trigger_service
+    empresa_service = emp_service
+    stats_service = stat_service
+    notif_service = notif_serv
+    email_service = EmailService()  # Inicializar servicio de email
+    trigger_service = trig_service  # Inicializar servicio de triggers
+
+
+def normalize_response(resultado: Dict) -> Dict:
+    """Normaliza la respuesta del servicio para usar 'datos' en lugar de 'data'"""
+    if 'data' in resultado:
+        resultado['datos'] = resultado.pop('data')
+    return resultado
+
+
+# ========================================
+# RUTAS DE INFORMACIÓN
+# ========================================
+
+@info_router.get("/api")
+async def index():
+    """Información de la API"""
+    return {
+        'nombre': 'Sistema de Gestión de Facturación',
+        'version': '2.0.0',
+        'framework': 'FastAPI',
+        'docs': '/docs',
+        'redoc': '/redoc',
+        'endpoints': {
+            'empresas': {
+                'GET /api/empresas': 'Obtener todas las empresas activas',
+                'GET /api/empresas/{nit}': 'Obtener empresa por NIT',
+                'POST /api/empresas': 'Crear nueva empresa',
+                'PATCH /api/empresas/{nit}/modulo': 'Actualizar estado de módulo',
+                'DELETE /api/empresas/{id}': 'Desactivar empresa'
+            },
+            'estadisticas': {
+                'GET /api/estadisticas/resumen': 'Estadísticas generales',
+                'GET /api/estadisticas/por-estado': 'Empresas por estado',
+                'GET /api/estadisticas/certificados': 'Estadísticas de certificados',
+                'GET /api/estadisticas/resoluciones': 'Estadísticas de resoluciones',
+                'GET /api/estadisticas/documentos': 'Estadísticas de documentos'
+            },
+            'notificaciones': {
+                'GET /api/notificaciones/vencimientos': 'Notificaciones de vencimientos',
+                'GET /api/notificaciones/criticas': 'Notificaciones críticas',
+                'GET /api/notificaciones/conteo': 'Conteo de notificaciones'
+            }
+        }
+    }
+
+
+@info_router.get("/health")
+async def health():
+    """Endpoint de salud del sistema"""
+    return {
+        'status': 'ok',
+        'timestamp': datetime.now().isoformat(),
+        'framework': 'FastAPI'
+    }
+
+
+# ========================================
+# RUTAS DE EMPRESAS
+# ========================================
+
+@empresas_router.get("")
+async def obtener_empresas():
+    """Obtiene todas las empresas activas"""
+    resultado = empresa_service.obtener_empresas_activas()
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    return normalize_response(resultado)
+
+
+@empresas_router.get("/{nit}")
+async def obtener_empresa(nit: str = Path(..., description="NIT de la empresa")):
+    """Obtiene una empresa por NIT"""
+    resultado = empresa_service.obtener_empresa_por_nit(nit)
+    if not resultado['success']:
+        raise HTTPException(status_code=404, detail=resultado.get('error'))
+    return normalize_response(resultado)
+
+
+@empresas_router.post("", status_code=status.HTTP_201_CREATED)
+async def crear_empresa(empresa_data: EmpresaRequest):
+    """Crea una nueva empresa"""
+    try:
+        # Crear módulos
+        certificado = ModuloEmpresa(
+            **empresa_data.certificado.dict() if empresa_data.certificado else {}
+        )
+        resolucion = ModuloEmpresa(
+            **empresa_data.resolucion.dict() if empresa_data.resolucion else {}
+        )
+        documento = ModuloEmpresa(
+            **empresa_data.documento.dict() if empresa_data.documento else {}
+        )
+        
+        # Crear empresa
+        empresa = Empresa(
+            nit=empresa_data.nit,
+            nombre=empresa_data.nombre,
+            tipo=empresa_data.tipo,
+            estado=empresa_data.estado,
+            certificado=certificado,
+            resolucion=resolucion,
+            documento=documento
+        )
+        
+        resultado = empresa_service.crear_empresa(empresa)
+        if not resultado['success']:
+            raise HTTPException(status_code=400, detail=resultado.get('error'))
+        return normalize_response(resultado)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@empresas_router.put("/{nit}")
+async def actualizar_empresa(
+    nit: str = Path(..., description="NIT de la empresa"),
+    empresa_data: EmpresaRequest = Body(...)
+):
+    """Actualiza una empresa existente"""
+    try:
+        # Primero obtener la empresa existente para tener el ID
+        empresa_existente = empresa_service.obtener_empresa_por_nit(nit)
+        if not empresa_existente['success']:
+            raise HTTPException(status_code=404, detail=f"Empresa con NIT {nit} no encontrada")
+        
+        empresa_id = empresa_existente.get('data', {}).get('id')
+        
+        # Crear módulos con manejo de None
+        certificado = None
+        if empresa_data.certificado:
+            cert_dict = empresa_data.certificado.dict()
+            if any(cert_dict.values()):  # Solo crear si tiene valores
+                certificado = ModuloEmpresa(**cert_dict)
+        
+        resolucion = None
+        if empresa_data.resolucion:
+            res_dict = empresa_data.resolucion.dict()
+            if any(res_dict.values()):  # Solo crear si tiene valores
+                resolucion = ModuloEmpresa(**res_dict)
+        
+        documento = None
+        if empresa_data.documento:
+            doc_dict = empresa_data.documento.dict()
+            if any(doc_dict.values()):  # Solo crear si tiene valores
+                documento = ModuloEmpresa(**doc_dict)
+        
+        # Crear empresa con el ID existente
+        empresa = Empresa(
+            id=empresa_id,
+            nit=empresa_data.nit,
+            nombre=empresa_data.nombre,
+            tipo=empresa_data.tipo,
+            estado=empresa_data.estado,
+            certificado=certificado,
+            resolucion=resolucion,
+            documento=documento
+        )
+        
+        resultado = empresa_service.actualizar_empresa(empresa)
+        
+        if not resultado['success']:
+            raise HTTPException(status_code=400, detail=resultado.get('error'))
+        return normalize_response(resultado)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@empresas_router.patch("/{nit}/modulo")
+async def actualizar_estado_modulo(
+    nit: str = Path(..., description="NIT de la empresa"),
+    datos: ActualizarModuloRequest = Body(...)
+):
+    """
+    Actualiza el estado de un módulo específico
+    
+    - **modulo**: certificado, resolucion o documento
+    - **campo**: renovado o facturado
+    - **valor**: 0 o 1
+    """
+    resultado = empresa_service.actualizar_estado_modulo(
+        nit, datos.modulo, datos.campo, datos.valor
+    )
+    if not resultado['success']:
+        raise HTTPException(status_code=400, detail=resultado.get('error'))
+    return resultado
+
+
+@empresas_router.delete("/{nit}")
+async def eliminar_empresa(nit: str = Path(..., description="NIT de la empresa")):
+    """Desactiva una empresa (soft delete)"""
+    # Primero obtener la empresa para conseguir su ID
+    resultado_empresa = empresa_service.obtener_empresa_por_nit(nit)
+    if not resultado_empresa['success']:
+        raise HTTPException(status_code=404, detail=resultado_empresa.get('error'))
+    
+    empresa_id = resultado_empresa['datos']['id']
+    resultado = empresa_service.eliminar_empresa(empresa_id)
+    if not resultado['success']:
+        raise HTTPException(status_code=404, detail=resultado.get('error'))
+    return resultado
+
+
+@empresas_router.get("/buscar/nombre")
+async def buscar_por_nombre(nombre: str = Query(..., description="Nombre a buscar")):
+    """Busca empresas por nombre"""
+    resultado = empresa_service.buscar_por_nombre(nombre)
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    return resultado
+
+
+@empresas_router.get("/filtrar/estado")
+async def filtrar_por_estado(estado: str = Query(..., description="Estado a filtrar")):
+    """Filtra empresas por estado"""
+    resultado = empresa_service.filtrar_por_estado(estado)
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    return resultado
+
+
+# ========================================
+# RUTAS DE ESTADÍSTICAS
+# ========================================
+
+@estadisticas_router.get("/resumen")
+async def obtener_resumen():
+    """Obtiene resumen general del sistema"""
+    resultado = stats_service.obtener_estadisticas_generales()
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    
+    stats = resultado.get('data', {})
+    
+    # Calcular totales y alertas
+    total_empresas = stats.get('total_empresas', 0)
+    empresas_activas = total_empresas  # Todas son activas por el filtro
+    
+    cert = stats.get('certificados', {})
+    res = stats.get('resoluciones', {})
+    doc = stats.get('documentos', {})
+    
+    # Calcular alertas críticas (pendientes de renovación)
+    alertas_criticas = (
+        cert.get('pendientes_renovacion', 0) +
+        res.get('pendientes_renovacion', 0) +
+        doc.get('pendientes_renovacion', 0)
+    )
+    
+    return {
+        'success': True,
+        'datos': {
+            'total_empresas': total_empresas,
+            'empresas_activas': empresas_activas,
+            'total_certificados': cert.get('activos', 0),
+            'total_resoluciones': res.get('activos', 0),
+            'total_documentos': doc.get('activos', 0),
+            'alertas_criticas': alertas_criticas,
+            'certificados': cert,
+            'resoluciones': res,
+            'documentos': doc
+        }
+    }
+
+
+@estadisticas_router.get("/por-estado")
+async def obtener_por_estado():
+    """Obtiene distribución de empresas por estado"""
+    # Obtener todas las empresas activas y contar por estado
+    empresas = empresa_service.obtener_empresas_activas()
+    if not empresas['success']:
+        raise HTTPException(status_code=500, detail=empresas.get('error'))
+    
+    # Contar por estado
+    estados = {}
+    for emp in empresas.get('data', []):
+        estado = emp.get('estado', 'inactivo')
+        estados[estado] = estados.get(estado, 0) + 1
+    
+    return {
+        'success': True,
+        'datos': estados
+    }
+
+
+@estadisticas_router.get("/certificados")
+async def obtener_certificados():
+    """Obtiene estadísticas de certificados con información de vencimientos"""
+    resultado = stats_service.obtener_estadisticas_generales()
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    
+    cert_stats = resultado.get('data', {}).get('certificados', {})
+    
+    # Agregar estadísticas de vencimientos (simulado por ahora)
+    return {
+        'success': True,
+        'datos': {
+            **cert_stats,
+            'vencidos': 0,  # Necesitaríamos consultar fechas
+            'por_vencer': cert_stats.get('pendientes_renovacion', 0),
+            'vigentes': cert_stats.get('renovados', 0)
+        }
+    }
+
+
+@estadisticas_router.get("/resoluciones")
+async def obtener_resoluciones():
+    """Obtiene estadísticas de resoluciones con información de vencimientos"""
+    resultado = stats_service.obtener_estadisticas_generales()
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    
+    res_stats = resultado.get('data', {}).get('resoluciones', {})
+    
+    return {
+        'success': True,
+        'datos': {
+            **res_stats,
+            'vencidos': 0,
+            'por_vencer': res_stats.get('pendientes_renovacion', 0),
+            'vigentes': res_stats.get('renovados', 0)
+        }
+    }
+
+
+@estadisticas_router.get("/documentos")
+async def obtener_documentos():
+    """Obtiene estadísticas de documentos con información de vencimientos"""
+    resultado = stats_service.obtener_estadisticas_generales()
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    
+    doc_stats = resultado.get('data', {}).get('documentos', {})
+    
+    return {
+        'success': True,
+        'datos': {
+            **doc_stats,
+            'vencidos': 0,
+            'por_vencer': doc_stats.get('pendientes_renovacion', 0),
+            'vigentes': doc_stats.get('renovados', 0)
+        }
+    }
+
+
+@estadisticas_router.get("/pendientes")
+async def obtener_pendientes():
+    """Obtiene empresas con pendientes de renovación o facturación"""
+    resultado = stats_service.obtener_empresas_pendientes()
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    return resultado
+
+
+# ========================================
+# RUTAS DE NOTIFICACIONES
+# ========================================
+
+@notificaciones_router.get("/vencimientos")
+async def obtener_vencimientos(
+    dias: int = Query(30, ge=1, le=365, description="Días de anticipación")
+):
+    """Obtiene notificaciones de vencimientos próximos"""
+    resultado = notif_service.obtener_notificaciones_pendientes(dias)
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    return normalize_response(resultado)
+
+
+@notificaciones_router.get("/criticas")
+async def obtener_criticas():
+    """Obtiene notificaciones críticas (próximas a vencer en 7 días)"""
+    resultado = notif_service.obtener_notificaciones_pendientes(7)
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    return normalize_response(resultado)
+
+
+@notificaciones_router.get("/conteo")
+async def obtener_conteo():
+    """Obtiene el conteo de notificaciones por prioridad"""
+    resultado = notif_service.obtener_notificaciones_pendientes(30)
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    
+    # Aplanar alertas para contar por prioridad
+    datos = resultado.get('data', [])
+    alertas_flat = []
+    for notif in datos:
+        for alerta in notif.get('alertas', []):
+            alertas_flat.append(alerta)
+    
+    conteo = {
+        'CRITICA': sum(1 for a in alertas_flat if a.get('prioridad') == 'CRITICA'),
+        'ALTA': sum(1 for a in alertas_flat if a.get('prioridad') == 'ALTA'),
+        'MEDIA': sum(1 for a in alertas_flat if a.get('prioridad') == 'MEDIA'),
+        'total': len(alertas_flat)
+    }
+    
+    return {
+        'success': True,
+        'datos': conteo
+    }
+
+
+@notificaciones_router.get("/mes-actual")
+async def obtener_vencimientos_mes():
+    """Obtiene vencimientos del mes actual"""
+    resultado = notif_service.obtener_vencimientos_mes_actual()
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    return normalize_response(resultado)
+
+
+# ========================================
+# RUTAS DE EMAIL
+# ========================================
+
+@email_router.post("/enviar-notificaciones")
+async def enviar_notificaciones_email(
+    destinatarios: list[str] = Body(..., description="Lista de emails destino")
+):
+    """
+    Envía las notificaciones pendientes por email
+    
+    Args:
+        destinatarios: Lista de direcciones de email
+        
+    Returns:
+        Resultado del envío
+    """
+    if not email_service:
+        raise HTTPException(
+            status_code=503, 
+            detail="Servicio de email no disponible"
+        )
+    
+    # Obtener notificaciones pendientes
+    resultado_notif = notif_service.obtener_notificaciones_pendientes()
+    if not resultado_notif['success']:
+        raise HTTPException(
+            status_code=500, 
+            detail=resultado_notif.get('error')
+        )
+    
+    notificaciones = resultado_notif.get('data', [])
+    
+    # Enviar email
+    resultado = email_service.enviar_notificaciones_vencimientos(
+        destinatarios, 
+        notificaciones
+    )
+    
+    if not resultado['success']:
+        raise HTTPException(
+            status_code=500, 
+            detail=resultado.get('error')
+        )
+    
+    return {
+        'success': True,
+        'datos': resultado
+    }
+
+
+@email_router.post("/enviar-simple")
+async def enviar_email_simple(
+    destinatario: str = Body(..., description="Email destino"),
+    asunto: str = Body(..., description="Asunto del email"),
+    mensaje: str = Body(..., description="Contenido del mensaje")
+):
+    """
+    Envía un email simple
+    
+    Args:
+        destinatario: Email destino
+        asunto: Asunto del email
+        mensaje: Contenido del mensaje
+        
+    Returns:
+        Resultado del envío
+    """
+    if not email_service:
+        raise HTTPException(
+            status_code=503, 
+            detail="Servicio de email no disponible"
+        )
+    
+    resultado = email_service.enviar_email_simple(
+        destinatario, 
+        asunto, 
+        mensaje
+    )
+    
+    if not resultado['success']:
+        raise HTTPException(
+            status_code=500, 
+            detail=resultado.get('error')
+        )
+    
+    return {
+        'success': True,
+        'datos': resultado
+    }
+
+
+@email_router.get("/configurado")
+async def verificar_configuracion():
+    """
+    Verifica si el servicio de email está configurado
+    
+    Returns:
+        Estado de la configuración
+    """
+    if not email_service:
+        return {
+            'success': False,
+            'configurado': False,
+            'mensaje': 'Servicio no inicializado'
+        }
+    
+    configurado = bool(email_service.smtp_user and email_service.smtp_password)
+    
+    return {
+        'success': True,
+        'configurado': configurado,
+        'smtp_user': email_service.smtp_user if configurado else None,
+        'mensaje': 'Configurado correctamente' if configurado else 'Faltan credenciales SMTP'
+    }
+
+
+# ========================================
+# RUTAS DE TRIGGERS
+# ========================================
+
+@triggers_router.get("")
+async def obtener_triggers():
+    """
+    Obtiene todos los triggers configurados
+    
+    Returns:
+        Lista de triggers
+    """
+    if not trigger_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de triggers no disponible"
+        )
+    
+    resultado = trigger_service.obtener_triggers()
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    
+    return normalize_response(resultado)
+
+
+@triggers_router.get("/{trigger_id}")
+async def obtener_trigger(trigger_id: int):
+    """
+    Obtiene un trigger por ID
+    
+    Args:
+        trigger_id: ID del trigger
+        
+    Returns:
+        Trigger encontrado
+    """
+    if not trigger_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de triggers no disponible"
+        )
+    
+    resultado = trigger_service.obtener_trigger(trigger_id)
+    if not resultado['success']:
+        raise HTTPException(status_code=404, detail=resultado.get('error'))
+    
+    return normalize_response(resultado)
+
+
+@triggers_router.post("")
+async def crear_trigger(datos: Dict[str, Any] = Body(...)):
+    """
+    Crea un nuevo trigger
+    
+    Args:
+        datos: Datos del trigger
+        
+    Returns:
+        Trigger creado
+    """
+    if not trigger_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de triggers no disponible"
+        )
+    
+    resultado = trigger_service.crear_trigger(datos)
+    if not resultado['success']:
+        raise HTTPException(status_code=400, detail=resultado.get('error'))
+    
+    return normalize_response(resultado)
+
+
+@triggers_router.put("/{trigger_id}")
+async def actualizar_trigger(trigger_id: int, datos: Dict[str, Any] = Body(...)):
+    """
+    Actualiza un trigger existente
+    
+    Args:
+        trigger_id: ID del trigger
+        datos: Datos a actualizar
+        
+    Returns:
+        Trigger actualizado
+    """
+    if not trigger_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de triggers no disponible"
+        )
+    
+    resultado = trigger_service.actualizar_trigger(trigger_id, datos)
+    if not resultado['success']:
+        raise HTTPException(status_code=400, detail=resultado.get('error'))
+    
+    return normalize_response(resultado)
+
+
+@triggers_router.delete("/{trigger_id}")
+async def eliminar_trigger(trigger_id: int):
+    """
+    Elimina un trigger
+    
+    Args:
+        trigger_id: ID del trigger
+        
+    Returns:
+        Resultado de la eliminación
+    """
+    if not trigger_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de triggers no disponible"
+        )
+    
+    resultado = trigger_service.eliminar_trigger(trigger_id)
+    if not resultado['success']:
+        raise HTTPException(status_code=404, detail=resultado.get('error'))
+    
+    return resultado
+
+
+@triggers_router.patch("/{trigger_id}/estado")
+async def cambiar_estado_trigger(
+    trigger_id: int,
+    activo: bool = Body(..., embed=True)
+):
+    """
+    Activa o desactiva un trigger
+    
+    Args:
+        trigger_id: ID del trigger
+        activo: Nuevo estado (true/false)
+        
+    Returns:
+        Trigger actualizado
+    """
+    if not trigger_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de triggers no disponible"
+        )
+    
+    resultado = trigger_service.cambiar_estado(trigger_id, activo)
+    if not resultado['success']:
+        raise HTTPException(status_code=400, detail=resultado.get('error'))
+    
+    return normalize_response(resultado)
+
+
+@triggers_router.get("/pendientes/ejecutar")
+async def obtener_triggers_pendientes():
+    """
+    Obtiene triggers que deben ejecutarse ahora
+    
+    Returns:
+        Lista de triggers pendientes
+    """
+    if not trigger_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de triggers no disponible"
+        )
+    
+    resultado = trigger_service.obtener_triggers_pendientes()
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    
+    return normalize_response(resultado)
+
+

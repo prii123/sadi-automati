@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: sadi-facturacion
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - DB_TYPE=sqlite
+      - DB_PATH=data/facturacion.db
+      - API_HOST=0.0.0.0
+      - API_PORT=5000
+      - API_DEBUG=False
+      - NOTIFICACION_DIAS_ANTICIPACION=30
+      # Configurar estas variables en archivo .env.production
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - EMAIL_DESTINATARIOS=${EMAIL_DESTINATARIOS}
+      - SECRET_KEY=${SECRET_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - sadi-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  sadi-network:
+    driver: bridge
+
+volumes:
+  data:
+  logs:
