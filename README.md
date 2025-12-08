@@ -2,6 +2,8 @@
 
 Sistema completo con arquitectura en capas para gestionar notificaciones de facturación electrónica, certificados y resoluciones. API REST con **FastAPI**, frontend en JavaScript vanilla, y sistema de notificaciones por email con triggers programables.
 
+<!-- uvicorn api:create_app --factory --host 0.0.0.0 --port 5000 --reload -->
+
 ## 🌟 Características Principales
 
 - ✅ **API REST con FastAPI** - Framework moderno con documentación automática

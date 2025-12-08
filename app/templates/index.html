@@ -30,6 +30,9 @@
                 <li><a href="#" data-view="formulario" class="nav-link">
                     <span class="icon">➕</span> Nueva Empresa
                 </a></li>
+                <li><a href="#" data-view="importacion" class="nav-link">
+                    <span class="icon">📥</span> Importar Excel
+                </a></li>
             </ul>
         </nav>
 
@@ -227,6 +230,55 @@
                     </form>
                 </div>
             </div>
+
+            <!-- Vista Importación -->
+            <div id="view-importacion" class="view">
+                <div class="card">
+                    <h2>📥 Importación Masiva de Empresas</h2>
+                    
+                    <div class="importacion-info">
+                        <h4>ℹ️ Instrucciones:</h4>
+                        <ul>
+                            <li>Descarga la plantilla Excel con el formato correcto</li>
+                            <li>Completa los datos de las empresas en el archivo</li>
+                            <li>Sube el archivo para importar masivamente</li>
+                            <li>Las empresas existentes (mismo NIT) serán actualizadas</li>
+                            <li>Las empresas nuevas serán creadas</li>
+                        </ul>
+                    </div>
+
+                    <div class="importacion-section">
+                        <h3>Paso 1: Descargar Plantilla</h3>
+                        <p>Descarga la plantilla Excel con el formato y ejemplos:</p>
+                        <div class="importacion-actions">
+                            <button class="btn btn-success" onclick="window.importacionManager.descargarPlantilla()">
+                                📥 Descargar Plantilla Excel
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="importacion-section">
+                        <h3>Paso 2: Importar Archivo</h3>
+                        <p>Selecciona el archivo Excel completado para importar:</p>
+                        <div class="importacion-actions">
+                            <button class="btn btn-primary" onclick="window.importacionManager.seleccionarArchivo()">
+                                📤 Seleccionar y Cargar Excel
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="importacion-info" style="background-color: #fef3c7; border-left-color: #f59e0b;">
+                        <h4>⚠️ Importante:</h4>
+                        <ul>
+                            <li>El archivo debe ser formato Excel (.xlsx o .xls)</li>
+                            <li>No modifiques los nombres de las columnas</li>
+                            <li>Las fechas deben estar en formato YYYY-MM-DD o DD/MM/YYYY</li>
+                            <li>Los campos booleanos aceptan: SI, NO, 1, 0, X</li>
+                            <li>El NIT y Razón Social son obligatorios</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -319,6 +371,7 @@
     <script src="../static/js/triggers.js"></script>
     <script src="../static/js/historial.js"></script>
     <script src="../static/js/formulario.js"></script>
+    <script src="../static/js/importacion.js"></script>
     <script src="../static/js/main.js"></script>
 </body>
 </html>

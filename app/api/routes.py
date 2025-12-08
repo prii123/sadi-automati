@@ -3,9 +3,10 @@ Rutas de la API REST
 Contiene todos los endpoints de la API
 """
 from typing import Dict, Any
-from fastapi import APIRouter, HTTPException, Query, Path, Body, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, Query, Path, Body, status, UploadFile, File
+from fastapi.responses import JSONResponse, StreamingResponse
 from datetime import datetime
+from io import BytesIO
 
 from app.api.schemas import EmpresaRequest, ActualizarModuloRequest
 from app.models.empresa import Empresa, ModuloEmpresa
@@ -14,6 +15,7 @@ from app.services.estadisticas_service import EstadisticasService
 from app.services.notificacion_service import NotificacionService
 from app.services.email_service import EmailService
 from app.services.trigger_service import TriggerService
+from app.services.importacion_service import ImportacionService
 
 
 # Crear routers
@@ -32,16 +34,18 @@ stats_service: EstadisticasService = None
 notif_service: NotificacionService = None
 email_service: EmailService = None
 trigger_service: TriggerService = None
+importacion_service: ImportacionService = None
 
 
 def init_services(emp_service: EmpresaService, stat_service: EstadisticasService, notif_serv: NotificacionService, trig_service: TriggerService = None):
     """Inicializa los servicios para las rutas"""
-    global empresa_service, stats_service, notif_service, email_service, trigger_service
+    global empresa_service, stats_service, notif_service, email_service, trigger_service, importacion_service
     empresa_service = emp_service
     stats_service = stat_service
     notif_service = notif_serv
     email_service = EmailService()  # Inicializar servicio de email
     trigger_service = trig_service  # Inicializar servicio de triggers
+    importacion_service = ImportacionService(emp_service.repository)  # Inicializar servicio de importación
 
 
 def normalize_response(resultado: Dict) -> Dict:
@@ -100,6 +104,99 @@ async def health():
 
 # ========================================
 # RUTAS DE EMPRESAS
+# ========================================
+
+# IMPORTANTE: Las rutas específicas (con paths literales) deben ir ANTES
+# de las rutas dinámicas (con parámetros como {nit}) para evitar conflictos
+
+# ========================================
+# RUTAS DE IMPORTACIÓN MASIVA (ANTES de rutas dinámicas)
+# ========================================
+
+@empresas_router.get("/plantilla-excel")
+async def descargar_plantilla_excel():
+    """
+    Descarga una plantilla Excel de ejemplo para importación masiva
+    """
+    print("🔥 EJECUTANDO ENDPOINT /plantilla-excel")
+    try:
+        # Generar plantilla
+        excel_content = importacion_service.generar_plantilla_excel()
+        print(f"✅ Plantilla generada, tamaño: {len(excel_content)} bytes")
+        
+        # Crear respuesta con el archivo
+        return StreamingResponse(
+            BytesIO(excel_content),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": "attachment; filename=plantilla_empresas.xlsx"
+            }
+        )
+        
+    except Exception as e:
+        print(f"❌ Error al generar plantilla: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al generar plantilla: {str(e)}")
+
+
+@empresas_router.post("/importar")
+async def importar_empresas_excel(
+    file: UploadFile = File(..., description="Archivo Excel con empresas")
+):
+    """
+    Importa empresas masivamente desde un archivo Excel
+    
+    El archivo debe tener las siguientes columnas:
+    - NIT, RAZON_SOCIAL, ESTADO
+    - CERTIFICADO_VENCIMIENTO, CERTIFICADO_RENOVADO, CERTIFICADO_FACTURADO
+    - RESOLUCION_VENCIMIENTO, RESOLUCION_RENOVADO, RESOLUCION_FACTURADO
+    - DOCUMENTO_VENCIMIENTO, DOCUMENTO_RENOVADO, DOCUMENTO_FACTURADO
+    """
+    print(f"🔥 EJECUTANDO ENDPOINT /importar - Archivo: {file.filename}")
+    # Validar tipo de archivo
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(
+            status_code=400, 
+            detail="El archivo debe ser un Excel (.xlsx o .xls)"
+        )
+    
+    try:
+        # Leer contenido del archivo
+        contents = await file.read()
+        print(f"✅ Archivo leído, tamaño: {len(contents)} bytes")
+        
+        # Procesar importación
+        resultado = importacion_service.importar_desde_excel(contents)
+        
+        if not resultado['success']:
+            raise HTTPException(status_code=400, detail=resultado.get('error'))
+        
+        return resultado
+        
+    except Exception as e:
+        print(f"❌ Error al procesar archivo: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al procesar archivo: {str(e)}")
+
+
+@empresas_router.get("/buscar/nombre")
+async def buscar_por_nombre(nombre: str = Query(..., description="Nombre a buscar")):
+    """Busca empresas por nombre"""
+    resultado = empresa_service.buscar_por_nombre(nombre)
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    return resultado
+
+
+@empresas_router.get("/filtrar/estado")
+async def filtrar_por_estado(estado: str = Query(..., description="Estado a filtrar")):
+    """Filtra empresas por estado"""
+    resultado = empresa_service.filtrar_por_estado(estado)
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    return resultado
+
+
+# ========================================
+# RUTAS BÁSICAS DE EMPRESAS
 # ========================================
 
 @empresas_router.get("")
@@ -240,28 +337,14 @@ async def eliminar_empresa(nit: str = Path(..., description="NIT de la empresa")
     if not resultado_empresa['success']:
         raise HTTPException(status_code=404, detail=resultado_empresa.get('error'))
     
-    empresa_id = resultado_empresa['datos']['id']
+    # El servicio devuelve 'data', no 'datos'
+    empresa_id = resultado_empresa.get('data', {}).get('id')
+    if not empresa_id:
+        raise HTTPException(status_code=404, detail="No se pudo obtener el ID de la empresa")
+    
     resultado = empresa_service.eliminar_empresa(empresa_id)
     if not resultado['success']:
         raise HTTPException(status_code=404, detail=resultado.get('error'))
-    return resultado
-
-
-@empresas_router.get("/buscar/nombre")
-async def buscar_por_nombre(nombre: str = Query(..., description="Nombre a buscar")):
-    """Busca empresas por nombre"""
-    resultado = empresa_service.buscar_por_nombre(nombre)
-    if not resultado['success']:
-        raise HTTPException(status_code=500, detail=resultado.get('error'))
-    return resultado
-
-
-@empresas_router.get("/filtrar/estado")
-async def filtrar_por_estado(estado: str = Query(..., description="Estado a filtrar")):
-    """Filtra empresas por estado"""
-    resultado = empresa_service.filtrar_por_estado(estado)
-    if not resultado['success']:
-        raise HTTPException(status_code=500, detail=resultado.get('error'))
     return resultado
 
 
@@ -278,7 +361,7 @@ async def obtener_resumen():
     
     stats = resultado.get('data', {})
     
-    # Calcular totales y alertas
+    # Calcular totales
     total_empresas = stats.get('total_empresas', 0)
     empresas_activas = total_empresas  # Todas son activas por el filtro
     
@@ -286,12 +369,19 @@ async def obtener_resumen():
     res = stats.get('resoluciones', {})
     doc = stats.get('documentos', {})
     
-    # Calcular alertas críticas (pendientes de renovación)
-    alertas_criticas = (
-        cert.get('pendientes_renovacion', 0) +
-        res.get('pendientes_renovacion', 0) +
-        doc.get('pendientes_renovacion', 0)
-    )
+    # Obtener estadísticas de vencimientos para alertas críticas
+    venc_cert = stats_service.obtener_estadisticas_vencimientos_certificados()
+    venc_res = stats_service.obtener_estadisticas_vencimientos_resoluciones()
+    venc_doc = stats_service.obtener_estadisticas_vencimientos_documentos()
+    
+    # Calcular alertas críticas (vencidos + por vencer)
+    alertas_criticas = 0
+    if venc_cert['success']:
+        alertas_criticas += venc_cert['data'].get('vencidos', 0) + venc_cert['data'].get('por_vencer', 0)
+    if venc_res['success']:
+        alertas_criticas += venc_res['data'].get('vencidos', 0) + venc_res['data'].get('por_vencer', 0)
+    if venc_doc['success']:
+        alertas_criticas += venc_doc['data'].get('vencidos', 0) + venc_doc['data'].get('por_vencer', 0)
     
     return {
         'success': True,
@@ -332,20 +422,27 @@ async def obtener_por_estado():
 @estadisticas_router.get("/certificados")
 async def obtener_certificados():
     """Obtiene estadísticas de certificados con información de vencimientos"""
-    resultado = stats_service.obtener_estadisticas_generales()
-    if not resultado['success']:
-        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    # Obtener estadísticas generales
+    resultado_general = stats_service.obtener_estadisticas_generales()
+    if not resultado_general['success']:
+        raise HTTPException(status_code=500, detail=resultado_general.get('error'))
     
-    cert_stats = resultado.get('data', {}).get('certificados', {})
+    cert_stats = resultado_general.get('data', {}).get('certificados', {})
     
-    # Agregar estadísticas de vencimientos (simulado por ahora)
+    # Obtener estadísticas de vencimientos basadas en fechas
+    resultado_vencimientos = stats_service.obtener_estadisticas_vencimientos_certificados()
+    if not resultado_vencimientos['success']:
+        raise HTTPException(status_code=500, detail=resultado_vencimientos.get('error'))
+    
+    vencimientos = resultado_vencimientos.get('data', {})
+    
     return {
         'success': True,
         'datos': {
             **cert_stats,
-            'vencidos': 0,  # Necesitaríamos consultar fechas
-            'por_vencer': cert_stats.get('pendientes_renovacion', 0),
-            'vigentes': cert_stats.get('renovados', 0)
+            'vencidos': vencimientos.get('vencidos', 0),
+            'por_vencer': vencimientos.get('por_vencer', 0),
+            'vigentes': vencimientos.get('vigentes', 0)
         }
     }
 
@@ -353,19 +450,27 @@ async def obtener_certificados():
 @estadisticas_router.get("/resoluciones")
 async def obtener_resoluciones():
     """Obtiene estadísticas de resoluciones con información de vencimientos"""
-    resultado = stats_service.obtener_estadisticas_generales()
-    if not resultado['success']:
-        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    # Obtener estadísticas generales
+    resultado_general = stats_service.obtener_estadisticas_generales()
+    if not resultado_general['success']:
+        raise HTTPException(status_code=500, detail=resultado_general.get('error'))
     
-    res_stats = resultado.get('data', {}).get('resoluciones', {})
+    res_stats = resultado_general.get('data', {}).get('resoluciones', {})
+    
+    # Obtener estadísticas de vencimientos basadas en fechas
+    resultado_vencimientos = stats_service.obtener_estadisticas_vencimientos_resoluciones()
+    if not resultado_vencimientos['success']:
+        raise HTTPException(status_code=500, detail=resultado_vencimientos.get('error'))
+    
+    vencimientos = resultado_vencimientos.get('data', {})
     
     return {
         'success': True,
         'datos': {
             **res_stats,
-            'vencidos': 0,
-            'por_vencer': res_stats.get('pendientes_renovacion', 0),
-            'vigentes': res_stats.get('renovados', 0)
+            'vencidos': vencimientos.get('vencidos', 0),
+            'por_vencer': vencimientos.get('por_vencer', 0),
+            'vigentes': vencimientos.get('vigentes', 0)
         }
     }
 
@@ -373,19 +478,27 @@ async def obtener_resoluciones():
 @estadisticas_router.get("/documentos")
 async def obtener_documentos():
     """Obtiene estadísticas de documentos con información de vencimientos"""
-    resultado = stats_service.obtener_estadisticas_generales()
-    if not resultado['success']:
-        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    # Obtener estadísticas generales
+    resultado_general = stats_service.obtener_estadisticas_generales()
+    if not resultado_general['success']:
+        raise HTTPException(status_code=500, detail=resultado_general.get('error'))
     
-    doc_stats = resultado.get('data', {}).get('documentos', {})
+    doc_stats = resultado_general.get('data', {}).get('documentos', {})
+    
+    # Obtener estadísticas de vencimientos basadas en fechas
+    resultado_vencimientos = stats_service.obtener_estadisticas_vencimientos_documentos()
+    if not resultado_vencimientos['success']:
+        raise HTTPException(status_code=500, detail=resultado_vencimientos.get('error'))
+    
+    vencimientos = resultado_vencimientos.get('data', {})
     
     return {
         'success': True,
         'datos': {
             **doc_stats,
-            'vencidos': 0,
-            'por_vencer': doc_stats.get('pendientes_renovacion', 0),
-            'vigentes': doc_stats.get('renovados', 0)
+            'vencidos': vencimientos.get('vencidos', 0),
+            'por_vencer': vencimientos.get('por_vencer', 0),
+            'vigentes': vencimientos.get('vigentes', 0)
         }
     }
 
@@ -935,3 +1048,6 @@ async def recargar_scheduler():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+ 

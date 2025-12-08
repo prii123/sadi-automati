@@ -2,6 +2,7 @@
 Servicio de estadísticas del sistema
 """
 from typing import Dict, Any
+from datetime import datetime, timedelta
 from app.repositories.empresa_repository import EmpresaRepository
 
 
@@ -175,6 +176,141 @@ class EstadisticasService:
                     'pendientes_facturacion': len(pendientes['pendientes_facturacion']),
                     'completadas': len(pendientes['totalmente_completadas'])
                 }
+            }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def obtener_estadisticas_vencimientos_certificados(self) -> Dict[str, Any]:
+        """
+        Calcula estadísticas de vencimientos de certificados basándose en fechas
+        
+        Returns:
+            Diccionario con conteo de vencidos, por vencer y vigentes
+        """
+        try:
+            empresas = self.repository.get_all({
+                'estado': 'activo',
+                'activos_solamente': True
+            })
+
+            hoy = datetime.now()
+            dias_alerta = 30  # Considerar "por vencer" si faltan menos de 30 días
+            fecha_limite_alerta = hoy + timedelta(days=dias_alerta)
+
+            stats = {
+                'vencidos': 0,
+                'por_vencer': 0,
+                'vigentes': 0
+            }
+
+            for empresa in empresas:
+                if empresa.certificado.activo == 1 and empresa.certificado.fecha_final:
+                    fecha_final = empresa.certificado.fecha_final
+                    
+                    if fecha_final < hoy:
+                        stats['vencidos'] += 1
+                    elif fecha_final <= fecha_limite_alerta:
+                        stats['por_vencer'] += 1
+                    else:
+                        stats['vigentes'] += 1
+
+            return {
+                'success': True,
+                'data': stats
+            }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def obtener_estadisticas_vencimientos_resoluciones(self) -> Dict[str, Any]:
+        """
+        Calcula estadísticas de vencimientos de resoluciones basándose en fechas
+        
+        Returns:
+            Diccionario con conteo de vencidos, por vencer y vigentes
+        """
+        try:
+            empresas = self.repository.get_all({
+                'estado': 'activo',
+                'activos_solamente': True
+            })
+
+            hoy = datetime.now()
+            dias_alerta = 30
+            fecha_limite_alerta = hoy + timedelta(days=dias_alerta)
+
+            stats = {
+                'vencidos': 0,
+                'por_vencer': 0,
+                'vigentes': 0
+            }
+
+            for empresa in empresas:
+                if empresa.resolucion.activo == 1 and empresa.resolucion.fecha_final:
+                    fecha_final = empresa.resolucion.fecha_final
+                    
+                    if fecha_final < hoy:
+                        stats['vencidos'] += 1
+                    elif fecha_final <= fecha_limite_alerta:
+                        stats['por_vencer'] += 1
+                    else:
+                        stats['vigentes'] += 1
+
+            return {
+                'success': True,
+                'data': stats
+            }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
+    def obtener_estadisticas_vencimientos_documentos(self) -> Dict[str, Any]:
+        """
+        Calcula estadísticas de vencimientos de documentos basándose en fechas
+        
+        Returns:
+            Diccionario con conteo de vencidos, por vencer y vigentes
+        """
+        try:
+            empresas = self.repository.get_all({
+                'estado': 'activo',
+                'activos_solamente': True
+            })
+
+            hoy = datetime.now()
+            dias_alerta = 30
+            fecha_limite_alerta = hoy + timedelta(days=dias_alerta)
+
+            stats = {
+                'vencidos': 0,
+                'por_vencer': 0,
+                'vigentes': 0
+            }
+
+            for empresa in empresas:
+                if empresa.documento.activo == 1 and empresa.documento.fecha_final:
+                    fecha_final = empresa.documento.fecha_final
+                    
+                    if fecha_final < hoy:
+                        stats['vencidos'] += 1
+                    elif fecha_final <= fecha_limite_alerta:
+                        stats['por_vencer'] += 1
+                    else:
+                        stats['vigentes'] += 1
+
+            return {
+                'success': True,
+                'data': stats
             }
 
         except Exception as e:
