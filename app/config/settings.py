@@ -2,8 +2,8 @@
 Configuración general del sistema
 """
 import os
-from typing import Optional
-from dataclasses import dataclass
+from typing import Optional, List
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -30,9 +30,10 @@ class Settings:
     API_DEBUG: bool = os.getenv('API_DEBUG', 'True').lower() == 'true'
     API_BASE_URL: str = os.getenv('API_BASE_URL', 'http://localhost:5000/api')
     
-    # CORS
-    CORS_ORIGINS: list = os.getenv('CORS_ORIGINS', '*').split(',')
-    
+    # CORS - Usar field con default_factory para tipos mutables
+    CORS_ORIGINS: List[str] = field(
+        default_factory=lambda: os.getenv('CORS_ORIGINS', '*').split(',')
+    )    
     # Notificaciones
     NOTIFICACION_DIAS_ANTICIPACION: int = int(os.getenv('NOTIFICACION_DIAS_ANTICIPACION', '30'))
     

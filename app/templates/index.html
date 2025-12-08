@@ -43,9 +43,14 @@
                     <span class="user-icon">👤</span>
                     <span class="user-name" id="user-name">Usuario</span>
                 </div>
-                <button class="btn-logout" onclick="Auth.logout()" title="Cerrar sesión">
-                    🚪 Salir
-                </button>
+                <div class="user-actions">
+                    <button class="btn-user-action" onclick="showCambiarPasswordModal()" title="Cambiar contraseña">
+                        🔑 Cambiar Contraseña
+                    </button>
+                    <button class="btn-logout" onclick="Auth.logout()" title="Cerrar sesión">
+                        🚪 Salir
+                    </button>
+                </div>
             </div>
         </nav>
 
@@ -298,86 +303,125 @@
     <!-- Toast para notificaciones -->
     <div id="toast" class="toast"></div>
 
+    <!-- Modal para Cambiar Contraseña -->
+    <div id="password-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔑 Cambiar Contraseña</h2>
+                <button class="modal-close" onclick="closeCambiarPasswordModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="password-form" onsubmit="handleCambiarPassword(event)">
+                    <div class="form-group">
+                        <label for="password-actual">Contraseña Actual *</label>
+                        <input type="password" id="password-actual" required autocomplete="current-password">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password-nueva">Nueva Contraseña *</label>
+                        <input type="password" id="password-nueva" required minlength="6" autocomplete="new-password">
+                        <small class="form-hint">Mínimo 6 caracteres</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password-confirmar">Confirmar Nueva Contraseña *</label>
+                        <input type="password" id="password-confirmar" required minlength="6" autocomplete="new-password">
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">💾 Cambiar Contraseña</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeCambiarPasswordModal()">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal para Trigger -->
     <div id="trigger-modal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeTriggerModal()">&times;</span>
-            <h2 id="trigger-modal-title">Nuevo Trigger</h2>
-            <form id="trigger-form">
-                <input type="hidden" id="trigger-id">
-                
-                <div class="form-group">
-                    <label for="trigger-nombre">Nombre *</label>
-                    <input type="text" id="trigger-nombre" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="trigger-descripcion">Descripción</label>
-                    <textarea id="trigger-descripcion" rows="2"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label for="trigger-frecuencia">Frecuencia *</label>
-                    <select id="trigger-frecuencia" required onchange="updateFrecuenciaFields()">
-                        <option value="diaria">Diaria</option>
-                        <option value="semanal">Semanal</option>
-                        <option value="mensual">Mensual</option>
-                        <option value="personalizada">Personalizada (horas)</option>
-                    </select>
-                </div>
-
-                <div class="form-group" id="group-hora">
-                    <label for="trigger-hora">Hora de ejecución *</label>
-                    <input type="time" id="trigger-hora" value="08:00">
-                </div>
-
-                <div class="form-group" id="group-dias-semana" style="display: none;">
-                    <label>Días de la semana</label>
-                    <div class="checkbox-group-inline">
-                        <label><input type="checkbox" value="lunes"> Lunes</label>
-                        <label><input type="checkbox" value="martes"> Martes</label>
-                        <label><input type="checkbox" value="miercoles"> Miércoles</label>
-                        <label><input type="checkbox" value="jueves"> Jueves</label>
-                        <label><input type="checkbox" value="viernes"> Viernes</label>
-                        <label><input type="checkbox" value="sabado"> Sábado</label>
-                        <label><input type="checkbox" value="domingo"> Domingo</label>
+            <div class="modal-header">
+                <h2 id="trigger-modal-title">Nuevo Trigger</h2>
+                <button class="modal-close" onclick="closeTriggerModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="trigger-form">
+                    <input type="hidden" id="trigger-id">
+                    
+                    <div class="form-group">
+                        <label for="trigger-nombre">Nombre *</label>
+                        <input type="text" id="trigger-nombre" required>
                     </div>
-                </div>
 
-                <div class="form-group" id="group-dia-mes" style="display: none;">
-                    <label for="trigger-dia-mes">Día del mes *</label>
-                    <input type="number" id="trigger-dia-mes" min="1" max="31" value="1">
-                </div>
-
-                <div class="form-group" id="group-intervalo" style="display: none;">
-                    <label for="trigger-intervalo">Intervalo (horas) *</label>
-                    <input type="number" id="trigger-intervalo" min="1" max="24" value="1">
-                </div>
-
-                <div class="form-group">
-                    <label for="trigger-destinatarios">Destinatarios (separados por comas) *</label>
-                    <textarea id="trigger-destinatarios" rows="2" required placeholder="correo1@ejemplo.com, correo2@ejemplo.com"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Prioridades a incluir</label>
-                    <div class="checkbox-group-inline">
-                        <label><input type="checkbox" value="CRITICA" checked> 🚨 Críticas</label>
-                        <label><input type="checkbox" value="ALTA" checked> ⚠️ Altas</label>
-                        <label><input type="checkbox" value="MEDIA" checked> ℹ️ Medias</label>
+                    <div class="form-group">
+                        <label for="trigger-descripcion">Descripción</label>
+                        <textarea id="trigger-descripcion" rows="2"></textarea>
                     </div>
-                </div>
 
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">💾 Guardar</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeTriggerModal()">Cancelar</button>
-                </div>
-            </form>
+                    <div class="form-group">
+                        <label for="trigger-frecuencia">Frecuencia *</label>
+                        <select id="trigger-frecuencia" required onchange="updateFrecuenciaFields()">
+                            <option value="diaria">Diaria</option>
+                            <option value="semanal">Semanal</option>
+                            <option value="mensual">Mensual</option>
+                            <option value="personalizada">Personalizada (horas)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="group-hora">
+                        <label for="trigger-hora">Hora de ejecución *</label>
+                        <input type="time" id="trigger-hora" value="08:00">
+                    </div>
+
+                    <div class="form-group" id="group-dias-semana" style="display: none;">
+                        <label>Días de la semana</label>
+                        <div class="checkbox-group-inline">
+                            <label><input type="checkbox" value="lunes"> Lunes</label>
+                            <label><input type="checkbox" value="martes"> Martes</label>
+                            <label><input type="checkbox" value="miercoles"> Miércoles</label>
+                            <label><input type="checkbox" value="jueves"> Jueves</label>
+                            <label><input type="checkbox" value="viernes"> Viernes</label>
+                            <label><input type="checkbox" value="sabado"> Sábado</label>
+                            <label><input type="checkbox" value="domingo"> Domingo</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="group-dia-mes" style="display: none;">
+                        <label for="trigger-dia-mes">Día del mes *</label>
+                        <input type="number" id="trigger-dia-mes" min="1" max="31" value="1">
+                    </div>
+
+                    <div class="form-group" id="group-intervalo" style="display: none;">
+                        <label for="trigger-intervalo">Intervalo (horas) *</label>
+                        <input type="number" id="trigger-intervalo" min="1" max="24" value="1">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="trigger-destinatarios">Destinatarios (separados por comas) *</label>
+                        <textarea id="trigger-destinatarios" rows="2" required placeholder="correo1@ejemplo.com, correo2@ejemplo.com"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Prioridades a incluir</label>
+                        <div class="checkbox-group-inline">
+                            <label><input type="checkbox" value="CRITICA" checked> 🚨 Críticas</label>
+                            <label><input type="checkbox" value="ALTA" checked> ⚠️ Altas</label>
+                            <label><input type="checkbox" value="MEDIA" checked> ℹ️ Medias</label>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">💾 Guardar</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeTriggerModal()">Cancelar</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
     <!-- Scripts -->
     <script src="../static/js/auth.js"></script>
+    <script src="../static/js/password.js"></script>
     <script src="../static/js/api.js"></script>
     <script src="../static/js/dashboard.js"></script>
     <script src="../static/js/empresas.js"></script>
