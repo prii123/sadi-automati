@@ -100,10 +100,35 @@
             <!-- Vista Triggers -->
             <div id="view-triggers" class="view">
                 <div class="triggers-header">
+                    <div class="triggers-nav">
+                        <button class="btn btn-tab active" data-trigger-tab="lista" onclick="showTriggersTab('lista')">📋 Triggers</button>
+                        <button class="btn btn-tab" data-trigger-tab="historial" onclick="showTriggersTab('historial')">📊 Historial</button>
+                    </div>
                     <button class="btn btn-primary" onclick="showTriggerModal()">➕ Nuevo Trigger</button>
                 </div>
-                <div class="triggers-container" id="triggers-container">
-                    <!-- Los triggers se cargarán aquí -->
+                
+                <!-- Tab de lista de triggers -->
+                <div id="triggers-tab-lista" class="triggers-tab active">
+                    <div class="triggers-container" id="triggers-container">
+                        <!-- Los triggers se cargarán aquí -->
+                    </div>
+                </div>
+                
+                <!-- Tab de historial -->
+                <div id="triggers-tab-historial" class="triggers-tab" style="display: none;">
+                    <div class="historial-filters">
+                        <select id="historial-trigger-filter" class="filter-select" onchange="loadHistorial()">
+                            <option value="">Todos los triggers</option>
+                        </select>
+                        <select id="historial-limit" class="filter-select" onchange="loadHistorial()">
+                            <option value="50">Últimas 50 ejecuciones</option>
+                            <option value="100" selected>Últimas 100 ejecuciones</option>
+                            <option value="200">Últimas 200 ejecuciones</option>
+                        </select>
+                    </div>
+                    <div id="historial-container" class="historial-container">
+                        <!-- El historial se cargará aquí -->
+                    </div>
                 </div>
             </div>
 
@@ -292,6 +317,7 @@
     <script src="../static/js/empresas.js"></script>
     <script src="../static/js/notificaciones.js"></script>
     <script src="../static/js/triggers.js"></script>
+    <script src="../static/js/historial.js"></script>
     <script src="../static/js/formulario.js"></script>
     <script src="../static/js/main.js"></script>
 </body>

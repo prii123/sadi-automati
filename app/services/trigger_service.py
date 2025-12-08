@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import json
 
 from app.repositories.trigger_repository import TriggerRepository
-from app.models.trigger import Trigger
+from app.models.trigger import Trigger, TriggerEjecucion
 
 
 class TriggerService:
@@ -312,5 +312,111 @@ class TriggerService:
                 'data': pendientes
             }
             
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    # Métodos para gestión del historial de ejecuciones
+    
+    def registrar_ejecucion(self, datos: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Registra una nueva ejecución de un trigger
+        
+        Args:
+            datos: Datos de la ejecución (trigger_id, estado, notificaciones_enviadas, etc.)
+            
+        Returns:
+            Resultado de la operación
+        """
+        try:
+            trigger_id = datos.get('trigger_id')
+            if not trigger_id:
+                return {'success': False, 'error': 'trigger_id es obligatorio'}
+            
+            # Obtener información del trigger
+            trigger = self.repository.get_by_id(trigger_id)
+            if not trigger:
+                return {'success': False, 'error': 'Trigger no encontrado'}
+            
+            # Crear registro de ejecución
+            ejecucion = TriggerEjecucion(
+                trigger_id=trigger_id,
+                trigger_nombre=trigger.nombre,
+                estado=datos.get('estado', 'exitoso'),
+                notificaciones_enviadas=datos.get('notificaciones_enviadas', 0),
+                empresas_procesadas=datos.get('empresas_procesadas', 0),
+                error_mensaje=datos.get('error_mensaje'),
+                detalles=datos.get('detalles')
+            )
+            
+            ejecucion = self.repository.registrar_ejecucion(ejecucion)
+            
+            # Actualizar próxima ejecución del trigger
+            trigger.proxima_ejecucion = self._calcular_proxima_ejecucion(trigger)
+            self.repository.actualizar_ejecucion(trigger_id, trigger.proxima_ejecucion)
+            
+            return {
+                'success': True,
+                'data': ejecucion.to_dict(),
+                'message': 'Ejecución registrada exitosamente'
+            }
+            
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    def obtener_historial_trigger(self, trigger_id: int, limit: int = 50) -> Dict[str, Any]:
+        """
+        Obtiene el historial de ejecuciones de un trigger
+        
+        Args:
+            trigger_id: ID del trigger
+            limit: Número máximo de registros
+            
+        Returns:
+            Lista de ejecuciones
+        """
+        try:
+            ejecuciones = self.repository.get_ejecuciones_by_trigger(trigger_id, limit)
+            return {
+                'success': True,
+                'data': [e.to_dict() for e in ejecuciones]
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    def obtener_todas_ejecuciones(self, limit: int = 100) -> Dict[str, Any]:
+        """
+        Obtiene todas las ejecuciones de todos los triggers
+        
+        Args:
+            limit: Número máximo de registros
+            
+        Returns:
+            Lista de ejecuciones
+        """
+        try:
+            ejecuciones = self.repository.get_todas_ejecuciones(limit)
+            return {
+                'success': True,
+                'data': [e.to_dict() for e in ejecuciones]
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    def obtener_estadisticas_trigger(self, trigger_id: int) -> Dict[str, Any]:
+        """
+        Obtiene estadísticas de ejecución de un trigger
+        
+        Args:
+            trigger_id: ID del trigger
+            
+        Returns:
+            Estadísticas del trigger
+        """
+        try:
+            estadisticas = self.repository.get_estadisticas_trigger(trigger_id)
+            return {
+                'success': True,
+                'data': estadisticas
+            }
         except Exception as e:
             return {'success': False, 'error': str(e)}

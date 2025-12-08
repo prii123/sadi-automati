@@ -7,6 +7,49 @@ from datetime import datetime
 
 
 @dataclass
+class TriggerEjecucion:
+    """Representa una ejecución de un trigger"""
+    id: Optional[int] = None
+    trigger_id: int = 0
+    trigger_nombre: str = ""
+    fecha_ejecucion: Optional[str] = None
+    estado: str = "exitoso"  # exitoso, fallido
+    notificaciones_enviadas: int = 0
+    empresas_procesadas: int = 0
+    error_mensaje: Optional[str] = None
+    detalles: Optional[str] = None  # JSON con información adicional
+    
+    def to_dict(self) -> dict:
+        """Convierte la ejecución a diccionario"""
+        return {
+            'id': self.id,
+            'trigger_id': self.trigger_id,
+            'trigger_nombre': self.trigger_nombre,
+            'fecha_ejecucion': self.fecha_ejecucion,
+            'estado': self.estado,
+            'notificaciones_enviadas': self.notificaciones_enviadas,
+            'empresas_procesadas': self.empresas_procesadas,
+            'error_mensaje': self.error_mensaje,
+            'detalles': self.detalles
+        }
+    
+    @staticmethod
+    def from_dict(data: dict) -> 'TriggerEjecucion':
+        """Crea una ejecución desde un diccionario"""
+        return TriggerEjecucion(
+            id=data.get('id'),
+            trigger_id=data.get('trigger_id', 0),
+            trigger_nombre=data.get('trigger_nombre', ''),
+            fecha_ejecucion=data.get('fecha_ejecucion'),
+            estado=data.get('estado', 'exitoso'),
+            notificaciones_enviadas=data.get('notificaciones_enviadas', 0),
+            empresas_procesadas=data.get('empresas_procesadas', 0),
+            error_mensaje=data.get('error_mensaje'),
+            detalles=data.get('detalles')
+        )
+
+
+@dataclass
 class Trigger:
     """Representa un trigger de notificación programada"""
     id: Optional[int] = None

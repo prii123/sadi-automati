@@ -4,6 +4,11 @@ Inicialización de la aplicación FastAPI
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde .env
+load_dotenv()
 
 from app.config.settings import Settings
 from app.config.database_factory import DatabaseFactory
@@ -12,6 +17,7 @@ from app.services.estadisticas_service import EstadisticasService
 from app.services.notificacion_service import NotificacionService
 from app.services.trigger_service import TriggerService
 from app.repositories.trigger_repository import TriggerRepository
+from app.services.scheduler_service import start_scheduler, stop_scheduler
 
 # Importar routers
 from app.api.routes import (
@@ -26,6 +32,37 @@ from app.api.routes import (
 from app.web.views import views_router, get_static_files_app
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Manejador del ciclo de vida de la aplicación
+    Se ejecuta al iniciar y detener la aplicación
+    """
+    # Startup: Iniciar el scheduler automático
+    print("\n" + "=" * 60)
+    print("🚀 INICIANDO SCHEDULER AUTOMÁTICO DE TRIGGERS")
+    print("=" * 60)
+    try:
+        start_scheduler()
+        print("✅ Scheduler iniciado correctamente")
+    except Exception as e:
+        print(f"⚠️  Error iniciando scheduler: {str(e)}")
+    print("=" * 60 + "\n")
+    
+    yield  # La aplicación está corriendo
+    
+    # Shutdown: Detener el scheduler
+    print("\n" + "=" * 60)
+    print("🛑 DETENIENDO SCHEDULER")
+    print("=" * 60)
+    try:
+        stop_scheduler()
+        print("✅ Scheduler detenido correctamente")
+    except Exception as e:
+        print(f"⚠️  Error deteniendo scheduler: {str(e)}")
+    print("=" * 60 + "\n")
+
+
 def create_app() -> FastAPI:
     """
     Factory para crear y configurar la aplicación FastAPI
@@ -36,13 +73,14 @@ def create_app() -> FastAPI:
     # Configuración
     settings = Settings.from_env()
     
-    # Crear aplicación FastAPI
+    # Crear aplicación FastAPI con lifespan
     app = FastAPI(
         title="Sistema de Gestión de Facturación",
         description="API REST para gestión de notificaciones de facturación electrónica",
-        version="2.0.0",
+        version="2.1.0",
         docs_url="/docs",
-        redoc_url="/redoc"
+        redoc_url="/redoc",
+        lifespan=lifespan
     )
     
     # Configurar CORS

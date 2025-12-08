@@ -646,6 +646,13 @@ async def crear_trigger(datos: Dict[str, Any] = Body(...)):
     if not resultado['success']:
         raise HTTPException(status_code=400, detail=resultado.get('error'))
     
+    # Recargar scheduler con el nuevo trigger
+    try:
+        from app.services.scheduler_service import get_scheduler
+        get_scheduler().reload_triggers()
+    except Exception as e:
+        print(f"Advertencia: No se pudo recargar scheduler: {e}")
+    
     return normalize_response(resultado)
 
 
@@ -671,6 +678,13 @@ async def actualizar_trigger(trigger_id: int, datos: Dict[str, Any] = Body(...))
     if not resultado['success']:
         raise HTTPException(status_code=400, detail=resultado.get('error'))
     
+    # Recargar scheduler con los cambios
+    try:
+        from app.services.scheduler_service import get_scheduler
+        get_scheduler().reload_triggers()
+    except Exception as e:
+        print(f"Advertencia: No se pudo recargar scheduler: {e}")
+    
     return normalize_response(resultado)
 
 
@@ -695,7 +709,14 @@ async def eliminar_trigger(trigger_id: int):
     if not resultado['success']:
         raise HTTPException(status_code=404, detail=resultado.get('error'))
     
-    return resultado
+    # Recargar scheduler después de eliminar
+    try:
+        from app.services.scheduler_service import get_scheduler
+        get_scheduler().reload_triggers()
+    except Exception as e:
+        print(f"Advertencia: No se pudo recargar scheduler: {e}")
+    
+    return normalize_response(resultado)
 
 
 @triggers_router.patch("/{trigger_id}/estado")
@@ -723,6 +744,13 @@ async def cambiar_estado_trigger(
     if not resultado['success']:
         raise HTTPException(status_code=400, detail=resultado.get('error'))
     
+    # Recargar scheduler al cambiar estado
+    try:
+        from app.services.scheduler_service import get_scheduler
+        get_scheduler().reload_triggers()
+    except Exception as e:
+        print(f"Advertencia: No se pudo recargar scheduler: {e}")
+    
     return normalize_response(resultado)
 
 
@@ -747,3 +775,163 @@ async def obtener_triggers_pendientes():
     return normalize_response(resultado)
 
 
+# ========================================
+# RUTAS DE HISTORIAL DE EJECUCIONES
+# ========================================
+
+@triggers_router.get("/ejecuciones")
+async def obtener_todas_ejecuciones(
+    limit: int = Query(default=100, ge=1, le=500, description="Número máximo de registros")
+):
+    """
+    Obtiene todas las ejecuciones de todos los triggers
+    
+    Args:
+        limit: Número máximo de registros a retornar (default: 100, max: 500)
+        
+    Returns:
+        Lista de ejecuciones ordenadas por fecha descendente
+    """
+    if not trigger_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de triggers no disponible"
+        )
+    
+    resultado = trigger_service.obtener_todas_ejecuciones(limit)
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    
+    return normalize_response(resultado)
+
+
+@triggers_router.get("/{trigger_id}/ejecuciones")
+async def obtener_historial_trigger(
+    trigger_id: int = Path(..., description="ID del trigger"),
+    limit: int = Query(default=50, ge=1, le=200, description="Número máximo de registros")
+):
+    """
+    Obtiene el historial de ejecuciones de un trigger específico
+    
+    Args:
+        trigger_id: ID del trigger
+        limit: Número máximo de registros a retornar (default: 50, max: 200)
+        
+    Returns:
+        Lista de ejecuciones del trigger ordenadas por fecha descendente
+    """
+    if not trigger_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de triggers no disponible"
+        )
+    
+    resultado = trigger_service.obtener_historial_trigger(trigger_id, limit)
+    if not resultado['success']:
+        raise HTTPException(status_code=500, detail=resultado.get('error'))
+    
+    return normalize_response(resultado)
+
+
+@triggers_router.get("/{trigger_id}/estadisticas")
+async def obtener_estadisticas_trigger(
+    trigger_id: int = Path(..., description="ID del trigger")
+):
+    """
+    Obtiene estadísticas de ejecución de un trigger
+    
+    Args:
+        trigger_id: ID del trigger
+        
+    Returns:
+        Estadísticas del trigger (total ejecuciones, tasa de éxito, etc.)
+    """
+    if not trigger_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de triggers no disponible"
+        )
+    
+    resultado = trigger_service.obtener_estadisticas_trigger(trigger_id)
+    if not resultado['success']:
+        raise HTTPException(status_code=404, detail=resultado.get('error'))
+    
+    return normalize_response(resultado)
+
+
+@triggers_router.post("/ejecuciones")
+async def registrar_ejecucion(datos: Dict[str, Any] = Body(...)):
+    """
+    Registra una nueva ejecución de un trigger
+    
+    Args:
+        datos: Información de la ejecución:
+            - trigger_id: ID del trigger (requerido)
+            - estado: 'exitoso' o 'fallido' (default: 'exitoso')
+            - notificaciones_enviadas: Número de notificaciones enviadas
+            - empresas_procesadas: Número de empresas procesadas
+            - error_mensaje: Mensaje de error (si aplica)
+            - detalles: Información adicional en JSON
+            
+    Returns:
+        Ejecución registrada
+    """
+    if not trigger_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Servicio de triggers no disponible"
+        )
+    
+    resultado = trigger_service.registrar_ejecucion(datos)
+    if not resultado['success']:
+        raise HTTPException(status_code=400, detail=resultado.get('error'))
+    
+    return normalize_response(resultado)
+
+
+# ========================================
+# RUTAS DE CONTROL DEL SCHEDULER
+# ========================================
+
+@triggers_router.get("/scheduler/status")
+async def obtener_estado_scheduler():
+    """
+    Obtiene el estado del scheduler automático
+    
+    Returns:
+        Estado del scheduler y lista de jobs programados
+    """
+    try:
+        from app.services.scheduler_service import get_scheduler
+        scheduler = get_scheduler()
+        status = scheduler.get_status()
+        
+        return {
+            'success': True,
+            'datos': status
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@triggers_router.post("/scheduler/reload")
+async def recargar_scheduler():
+    """
+    Recarga todos los triggers en el scheduler
+    Útil después de crear, actualizar o eliminar triggers
+    
+    Returns:
+        Confirmación de recarga
+    """
+    try:
+        from app.services.scheduler_service import get_scheduler
+        scheduler = get_scheduler()
+        scheduler.reload_triggers()
+        
+        return {
+            'success': True,
+            'message': 'Scheduler recargado exitosamente',
+            'datos': scheduler.get_status()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

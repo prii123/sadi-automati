@@ -36,4 +36,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/api').read()" || exit 1
 
 # Comando para iniciar la aplicación
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "5000", "--factory"]
+CMD ["uvicorn", "api:create_app", "--factory", "--host", "0.0.0.0", "--port", "5000"]
