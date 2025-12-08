@@ -30,6 +30,9 @@ class Settings:
     API_DEBUG: bool = os.getenv('API_DEBUG', 'True').lower() == 'true'
     API_BASE_URL: str = os.getenv('API_BASE_URL', 'http://localhost:5000/api')
     
+    # CORS
+    CORS_ORIGINS: list = os.getenv('CORS_ORIGINS', '*').split(',')
+    
     # Notificaciones
     NOTIFICACION_DIAS_ANTICIPACION: int = int(os.getenv('NOTIFICACION_DIAS_ANTICIPACION', '30'))
     
