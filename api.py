@@ -16,12 +16,16 @@ from app.services.empresa_service import EmpresaService
 from app.services.estadisticas_service import EstadisticasService
 from app.services.notificacion_service import NotificacionService
 from app.services.trigger_service import TriggerService
+from app.services.auth_service import AuthService
 from app.repositories.trigger_repository import TriggerRepository
+from app.repositories.usuario_repository import UsuarioRepository
 from app.services.scheduler_service import start_scheduler, stop_scheduler
+from app.api.auth_middleware import AuthMiddleware
 
 # Importar routers
 from app.api.routes import (
     info_router, 
+    auth_router,
     empresas_router, 
     estadisticas_router, 
     notificaciones_router,
@@ -104,14 +108,22 @@ def create_app() -> FastAPI:
     trigger_repository = TriggerRepository(settings.DB_PATH)
     trigger_service = TriggerService(trigger_repository)
     
+    # Inicializar servicio de autenticación
+    usuario_repository = UsuarioRepository(settings.DB_PATH)
+    auth_service = AuthService(usuario_repository)
+    
     # Inicializar servicios en las rutas
-    init_services(empresa_service, stats_service, notif_service, trigger_service)
+    init_services(empresa_service, stats_service, notif_service, auth_service, trigger_service)
+    
+    # Agregar middleware de autenticación
+    app.add_middleware(AuthMiddleware, auth_service=auth_service)
     
     # Registrar router de vistas web primero (para capturar la ruta raíz)
     app.include_router(views_router)
     
     # Registrar routers de la API
     app.include_router(info_router)
+    app.include_router(auth_router)
     app.include_router(empresas_router)
     app.include_router(estadisticas_router)
     app.include_router(notificaciones_router)

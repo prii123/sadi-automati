@@ -1,6 +1,7 @@
 """
 Rutas para servir las vistas HTML del frontend
 """
+import os
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,6 +14,12 @@ STATIC_DIR = BASE_DIR / "static"
 
 # Crear router para las vistas
 views_router = APIRouter(tags=["Frontend"])
+
+
+def inject_env_vars(html_content: str) -> str:
+    """Inyecta variables de entorno en el HTML"""
+    api_base_url = os.getenv('API_BASE_URL', 'http://localhost:5000/api')
+    return html_content.replace('${API_BASE_URL}', api_base_url)
 
 
 def serve_index():
@@ -28,7 +35,35 @@ def serve_index():
     with open(index_path, "r", encoding="utf-8") as f:
         content = f.read()
     
+    # Inyectar variables de entorno
+    content = inject_env_vars(content)
+    
     return HTMLResponse(content=content)
+
+
+def serve_login():
+    """Función helper para servir el login.html"""
+    login_path = TEMPLATES_DIR / "login.html"
+    
+    if not login_path.exists():
+        return HTMLResponse(
+            content="<h1>Error 404</h1><p>No se encontró la página login.html</p>",
+            status_code=404
+        )
+    
+    with open(login_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    
+    # Inyectar variables de entorno
+    content = inject_env_vars(content)
+    
+    return HTMLResponse(content=content)
+
+
+@views_router.get("/login", response_class=HTMLResponse)
+async def login():
+    """Sirve la página de login"""
+    return serve_login()
 
 
 @views_router.get("/", response_class=HTMLResponse)

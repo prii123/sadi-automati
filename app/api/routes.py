@@ -3,24 +3,29 @@ Rutas de la API REST
 Contiene todos los endpoints de la API
 """
 from typing import Dict, Any
-from fastapi import APIRouter, HTTPException, Query, Path, Body, status, UploadFile, File
+from fastapi import APIRouter, HTTPException, Query, Path, Body, status, UploadFile, File, Request, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
 from datetime import datetime
 from io import BytesIO
 
 from app.api.schemas import EmpresaRequest, ActualizarModuloRequest
+from app.api.auth_schemas import LoginRequest, UsuarioCreate, UsuarioUpdate, CambiarPasswordRequest
+from app.api.auth_middleware import require_auth, require_admin
 from app.models.empresa import Empresa, ModuloEmpresa
+from app.models.usuario import Usuario
 from app.services.empresa_service import EmpresaService
 from app.services.estadisticas_service import EstadisticasService
 from app.services.notificacion_service import NotificacionService
 from app.services.email_service import EmailService
 from app.services.trigger_service import TriggerService
 from app.services.importacion_service import ImportacionService
+from app.services.auth_service import AuthService
 
 
 # Crear routers
 router = APIRouter()
 info_router = APIRouter(tags=["Info"])
+auth_router = APIRouter(prefix="/api/auth", tags=["Autenticación"])
 empresas_router = APIRouter(prefix="/api/empresas", tags=["Empresas"])
 estadisticas_router = APIRouter(prefix="/api/estadisticas", tags=["Estadísticas"])
 notificaciones_router = APIRouter(prefix="/api/notificaciones", tags=["Notificaciones"])
@@ -35,14 +40,16 @@ notif_service: NotificacionService = None
 email_service: EmailService = None
 trigger_service: TriggerService = None
 importacion_service: ImportacionService = None
+auth_service: AuthService = None
 
 
-def init_services(emp_service: EmpresaService, stat_service: EstadisticasService, notif_serv: NotificacionService, trig_service: TriggerService = None):
+def init_services(emp_service: EmpresaService, stat_service: EstadisticasService, notif_serv: NotificacionService, auth_serv: AuthService, trig_service: TriggerService = None):
     """Inicializa los servicios para las rutas"""
-    global empresa_service, stats_service, notif_service, email_service, trigger_service, importacion_service
+    global empresa_service, stats_service, notif_service, email_service, trigger_service, importacion_service, auth_service
     empresa_service = emp_service
     stats_service = stat_service
     notif_service = notif_serv
+    auth_service = auth_serv
     email_service = EmailService()  # Inicializar servicio de email
     trigger_service = trig_service  # Inicializar servicio de triggers
     importacion_service = ImportacionService(emp_service.repository)  # Inicializar servicio de importación
@@ -53,6 +60,84 @@ def normalize_response(resultado: Dict) -> Dict:
     if 'data' in resultado:
         resultado['datos'] = resultado.pop('data')
     return resultado
+
+
+# ========================================
+# RUTAS DE AUTENTICACIÓN
+# ========================================
+
+@auth_router.post("/login")
+async def login(request: LoginRequest):
+    """Login de usuario"""
+    resultado = auth_service.login(request.username, request.password)
+    
+    if not resultado['success']:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=resultado.get('error', 'Credenciales inválidas')
+        )
+    
+    return {
+        'success': True,
+        'datos': {
+            'token': resultado['token'],
+            'usuario': resultado['usuario'],
+            'expiracion': resultado['expiracion']
+        }
+    }
+
+
+@auth_router.post("/logout")
+async def logout(request: Request):
+    """Logout de usuario"""
+    token = request.state.token if hasattr(request.state, 'token') else None
+    
+    if token:
+        auth_service.logout(token)
+    
+    return {'success': True, 'mensaje': 'Sesión cerrada correctamente'}
+
+
+@auth_router.get("/me")
+async def obtener_usuario_actual(request: Request, usuario=Depends(require_auth)):
+    """Obtiene información del usuario autenticado"""
+    usuario_completo = auth_service.obtener_usuario_actual(request.state.token)
+    
+    if not usuario_completo:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario no encontrado"
+        )
+    
+    return {
+        'success': True,
+        'datos': usuario_completo.to_dict()
+    }
+
+
+@auth_router.post("/cambiar-password")
+async def cambiar_password(
+    request: Request,
+    datos: CambiarPasswordRequest,
+    usuario=Depends(require_auth)
+):
+    """Cambia la contraseña del usuario autenticado"""
+    resultado = auth_service.cambiar_password(
+        usuario['usuario_id'],
+        datos.password_actual,
+        datos.password_nueva
+    )
+    
+    if not resultado['success']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=resultado.get('error')
+        )
+    
+    return {
+        'success': True,
+        'mensaje': 'Contraseña actualizada correctamente'
+    }
 
 
 # ========================================
@@ -1050,4 +1135,16 @@ async def recargar_scheduler():
         raise HTTPException(status_code=500, detail=str(e))
 
 
- 
+# ========================================
+# INCLUIR TODOS LOS ROUTERS
+# ========================================
+
+# Incluir todos los routers en el router principal
+router.include_router(info_router)
+router.include_router(auth_router)
+router.include_router(empresas_router)
+router.include_router(estadisticas_router)
+router.include_router(notificaciones_router)
+router.include_router(email_router)
+router.include_router(triggers_router)
+

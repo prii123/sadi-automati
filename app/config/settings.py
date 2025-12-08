@@ -28,6 +28,7 @@ class Settings:
     API_HOST: str = os.getenv('API_HOST', '0.0.0.0')
     API_PORT: int = int(os.getenv('API_PORT', '5000'))
     API_DEBUG: bool = os.getenv('API_DEBUG', 'True').lower() == 'true'
+    API_BASE_URL: str = os.getenv('API_BASE_URL', 'http://localhost:5000/api')
     
     # Notificaciones
     NOTIFICACION_DIAS_ANTICIPACION: int = int(os.getenv('NOTIFICACION_DIAS_ANTICIPACION', '30'))

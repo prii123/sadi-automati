@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistema SADI</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script>
+        // Configuración de variables de entorno para el frontend
+        window.API_BASE_URL = '${API_BASE_URL}' || 'http://localhost:5000/api';
+    </script>
+    <style>
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 400px;
+            padding: 40px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn-login {
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #999;
+        }
+
+        .error-message {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .default-credentials {
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 20px;
+            font-size: 12px;
+        }
+
+        .default-credentials strong {
+            color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h1>🔐 Sistema SADI</h1>
+                <p>Inicia sesión para continuar</p>
+            </div>
+
+            <div id="error-message" class="error-message"></div>
+
+            <form id="login-form" class="login-form">
+                <div class="form-group">
+                    <label for="username">Usuario</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username" 
+                        required 
+                        autocomplete="username"
+                        placeholder="Ingresa tu usuario"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Contraseña</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required 
+                        autocomplete="current-password"
+                        placeholder="Ingresa tu contraseña"
+                    >
+                </div>
+
+                <button type="submit" class="btn-login" id="btn-login">
+                    Iniciar Sesión
+                </button>
+            </form>
+
+            <div class="default-credentials">
+                <strong>📝 Credenciales por defecto:</strong><br>
+                Usuario: <code>admin</code><br>
+                Contraseña: <code>admin123</code>
+            </div>
+
+            <div class="login-footer">
+                Sistema de Gestión de Facturación Electrónica &copy; 2025
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/auth.js"></script>
+    <script>
+        const loginForm = document.getElementById('login-form');
+        const btnLogin = document.getElementById('btn-login');
+        const errorMessage = document.getElementById('error-message');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            // Deshabilitar botón
+            btnLogin.disabled = true;
+            btnLogin.textContent = 'Iniciando sesión...';
+            errorMessage.classList.remove('show');
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Guardar token en cookies y localStorage usando Auth
+                    Auth.setSession(data.datos.token, data.datos.usuario);
+
+                    console.log('✅ Token guardado:', data.datos.token.substring(0, 20) + '...');
+                    console.log('✅ Usuario:', data.datos.usuario.nombre);
+
+                    // Redirigir al dashboard
+                    window.location.href = '/';
+                } else {
+                    // Mostrar error
+                    errorMessage.textContent = data.error || 'Error al iniciar sesión';
+                    errorMessage.classList.add('show');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                errorMessage.textContent = 'Error de conexión. Intenta nuevamente.';
+                errorMessage.classList.add('show');
+            } finally {
+                // Rehabilitar botón
+                btnLogin.disabled = false;
+                btnLogin.textContent = 'Iniciar Sesión';
+            }
+        });
+
+        // Si ya hay token, redirigir
+        if (Auth.isAuthenticated()) {
+            console.log('✅ Ya hay sesión activa, redirigiendo...');
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

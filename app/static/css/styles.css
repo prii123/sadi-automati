@@ -105,6 +105,52 @@ body {
     font-size: 1.25rem;
 }
 
+/* Sección de usuario en sidebar */
+.user-section {
+    position: absolute;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    right: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-light);
+}
+
+.user-icon {
+    font-size: 1.5rem;
+}
+
+.user-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.btn-logout {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-logout:hover {
+    background-color: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
 /* Contenido principal */
 .main-content {
     flex: 1;

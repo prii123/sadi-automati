@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión de Facturación</title>
     <link rel="stylesheet" href="../static/css/styles.css">
+    <script>
+        // Configuración de variables de entorno para el frontend
+        window.API_BASE_URL = '${API_BASE_URL}' || 'http://localhost:5000/api';
+    </script>
 </head>
 <body>
     <div class="container">
@@ -34,6 +38,15 @@
                     <span class="icon">📥</span> Importar Excel
                 </a></li>
             </ul>
+            <div class="user-section">
+                <div class="user-info" id="user-info">
+                    <span class="user-icon">👤</span>
+                    <span class="user-name" id="user-name">Usuario</span>
+                </div>
+                <button class="btn-logout" onclick="Auth.logout()" title="Cerrar sesión">
+                    🚪 Salir
+                </button>
+            </div>
         </nav>
 
         <!-- Contenido principal -->
@@ -364,6 +377,7 @@
     </div>
 
     <!-- Scripts -->
+    <script src="../static/js/auth.js"></script>
     <script src="../static/js/api.js"></script>
     <script src="../static/js/dashboard.js"></script>
     <script src="../static/js/empresas.js"></script>
@@ -373,5 +387,15 @@
     <script src="../static/js/formulario.js"></script>
     <script src="../static/js/importacion.js"></script>
     <script src="../static/js/main.js"></script>
+    
+    <script>
+        // Mostrar información del usuario en la UI
+        document.addEventListener('DOMContentLoaded', () => {
+            const usuario = Auth.getUsuario();
+            if (usuario) {
+                document.getElementById('user-name').textContent = usuario.nombre || usuario.username;
+            }
+        });
+    </script>
 </body>
 </html>

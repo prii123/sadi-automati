@@ -5,12 +5,30 @@
 
 // Configuración del API
 const API_CONFIG = {
-    baseURL: 'http://localhost:5000/api',
+    baseURL: window.API_BASE_URL || 'http://localhost:5000/api',
     timeout: 10000
 };
 
 /**
- * Realiza una petición HTTP al API
+ * Obtiene el token de autenticación desde cookies o localStorage
+ */
+function getAuthToken() {
+    // console.log('🔐 getAuthToken() - Verificando Auth disponible:', typeof Auth !== 'undefined');
+    
+    // Usar Auth si está disponible, sino fallback a localStorage
+    if (typeof Auth !== 'undefined' && Auth.getToken) {
+        const token = Auth.getToken();
+        // console.log('🔐 getAuthToken() - Usando Auth.getToken():', token ? token.substring(0, 20) + '...' : 'null');
+        return token;
+    }
+    
+    const tokenLocal = localStorage.getItem('token');
+    // console.log('🔐 getAuthToken() - Fallback a localStorage:', tokenLocal ? tokenLocal.substring(0, 20) + '...' : 'null');
+    return tokenLocal;
+}
+
+/**
+ * Realiza una petición HTTP al API con autenticación
  * @param {string} endpoint - Ruta del endpoint
  * @param {object} options - Opciones de la petición (method, body, etc.)
  * @returns {Promise<object>} Respuesta del API
@@ -18,19 +36,60 @@ const API_CONFIG = {
 async function fetchAPI(endpoint, options = {}) {
     const url = `${API_CONFIG.baseURL}${endpoint}`;
     
+    // console.log('📡 fetchAPI() - Endpoint:', endpoint);
+    // console.log('📡 fetchAPI() - URL completa:', url);
+    // console.log('📡 fetchAPI() - Auth disponible?', typeof Auth !== 'undefined');
+    
+    // Obtener token directamente de Auth
+    let token = null;
+    if (typeof Auth !== 'undefined' && Auth.getToken) {
+        token = Auth.getToken();
+        // console.log('✅ Token obtenido de Auth.getToken():', token ? token.substring(0, 20) + '...' : 'NULL');
+    } else {
+        token = localStorage.getItem('token');
+        // console.log('⚠️ Fallback a localStorage:', token ? token.substring(0, 20) + '...' : 'NULL');
+    }
+    
+    // Log para debugging
+    if (token) {
+        // console.log('✅ Token encontrado, enviando en Authorization header');
+        // console.log('📤 Authorization: Bearer', token.substring(0, 30) + '...');
+    } else {
+        console.error('❌ NO HAY TOKEN - Request será rechazado');
+    }
+    
     const defaultOptions = {
         headers: {
             'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         ...options
     };
+    
+    // console.log('📋 Headers completos:', JSON.stringify(defaultOptions.headers, null, 2));
 
     try {
         const response = await fetch(url, defaultOptions);
         
+        // Manejar errores de autenticación
+        if (response.status === 401) {
+            // console.error('❌ Error 401: Token inválido o expirado');
+            
+            // Limpiar sesión usando Auth si está disponible
+            if (typeof Auth !== 'undefined' && Auth.clearSession) {
+                Auth.clearSession();
+            } else {
+                localStorage.removeItem('token');
+                localStorage.removeItem('usuario');
+            }
+            
+            window.location.href = '/login';
+            throw new Error('Sesión expirada');
+        }
+        
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.mensaje || `Error ${response.status}`);
+            throw new Error(error.mensaje || error.error || `Error ${response.status}`);
         }
 
         return await response.json();
