@@ -31,6 +31,7 @@ from app.api.routes import (
     notificaciones_router,
     email_router,
     triggers_router,
+    db_router,
     init_services
 )
 from app.web.views import views_router, get_static_files_app
@@ -132,6 +133,7 @@ def create_app() -> FastAPI:
     app.include_router(notificaciones_router)
     app.include_router(email_router)
     app.include_router(triggers_router)
+    app.include_router(db_router)
     
     # Montar archivos estáticos
     app.mount("/static", get_static_files_app(), name="static")

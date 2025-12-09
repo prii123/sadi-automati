@@ -5,6 +5,7 @@
 
 let empresasData = [];
 let empresasFiltradas = [];
+let pendingFilter = null; // Almacena filtro pendiente desde dashboard
 
 /**
  * Carga y renderiza la lista de empresas
@@ -13,8 +14,16 @@ async function loadEmpresas() {
     try {
         empresasData = await EmpresasAPI.getAll();
         empresasFiltradas = [...empresasData];
-        renderEmpresasTable();
-        Utils.showToast(`${empresasData.length} empresas cargadas`, 'success');
+        
+        // Si hay un filtro pendiente desde el dashboard, aplicarlo
+        if (pendingFilter) {
+            const { modulo, estado } = pendingFilter;
+            pendingFilter = null; // Limpiar filtro pendiente
+            applyVencimientoFilter(modulo, estado);
+        } else {
+            renderEmpresasTable();
+            Utils.showToast(`${empresasData.length} empresas cargadas`, 'success');
+        }
     } catch (error) {
         console.error('Error al cargar empresas:', error);
         Utils.showToast('Error al cargar las empresas', 'error');

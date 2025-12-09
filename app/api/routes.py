@@ -20,6 +20,7 @@ from app.services.email_service import EmailService
 from app.services.trigger_service import TriggerService
 from app.services.importacion_service import ImportacionService
 from app.services.auth_service import AuthService
+from app.services.database_service import DatabaseService
 
 
 # Crear routers
@@ -31,6 +32,7 @@ estadisticas_router = APIRouter(prefix="/api/estadisticas", tags=["Estadísticas
 notificaciones_router = APIRouter(prefix="/api/notificaciones", tags=["Notificaciones"])
 email_router = APIRouter(prefix="/api/email", tags=["Email"])
 triggers_router = APIRouter(prefix="/api/triggers", tags=["Triggers"])
+db_router = APIRouter(prefix="/api/database", tags=["Database Viewer"])
 
 
 # Variables globales para servicios (se inicializarán desde api.py)
@@ -41,11 +43,12 @@ email_service: EmailService = None
 trigger_service: TriggerService = None
 importacion_service: ImportacionService = None
 auth_service: AuthService = None
+db_service: DatabaseService = None
 
 
 def init_services(emp_service: EmpresaService, stat_service: EstadisticasService, notif_serv: NotificacionService, auth_serv: AuthService, trig_service: TriggerService = None):
     """Inicializa los servicios para las rutas"""
-    global empresa_service, stats_service, notif_service, email_service, trigger_service, importacion_service, auth_service
+    global empresa_service, stats_service, notif_service, email_service, trigger_service, importacion_service, auth_service, db_service
     empresa_service = emp_service
     stats_service = stat_service
     notif_service = notif_serv
@@ -53,6 +56,11 @@ def init_services(emp_service: EmpresaService, stat_service: EstadisticasService
     email_service = EmailService()  # Inicializar servicio de email
     trigger_service = trig_service  # Inicializar servicio de triggers
     importacion_service = ImportacionService(emp_service.repository)  # Inicializar servicio de importación
+    
+    # Inicializar servicio de base de datos
+    from app.config.settings import Settings
+    settings = Settings()
+    db_service = DatabaseService(settings.DB_PATH)
 
 
 def normalize_response(resultado: Dict) -> Dict:
@@ -1136,6 +1144,112 @@ async def recargar_scheduler():
 
 
 # ========================================
+# RUTAS DE VISUALIZACIÓN DE BASE DE DATOS (Solo Admin)
+# ========================================
+
+@db_router.get("/tables", dependencies=[Depends(require_admin)])
+async def get_tables():
+    """
+    Obtiene la lista de todas las tablas en la base de datos
+    Solo accesible por administradores
+    
+    Returns:
+        Lista de tablas con información básica
+    """
+    try:
+        tables_info = db_service.get_all_table_info()
+        return {
+            'success': True,
+            'datos': tables_info
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@db_router.get("/tables/{table_name}", dependencies=[Depends(require_admin)])
+async def get_table_data(
+    table_name: str = Path(..., description="Nombre de la tabla"),
+    limit: int = Query(100, ge=1, le=10000, description="Número máximo de registros (1-10000)")
+):
+    """
+    Obtiene los datos de una tabla específica
+    Solo accesible por administradores
+    
+    Args:
+        table_name: Nombre de la tabla
+        limit: Número máximo de registros (1-10000)
+        
+    Returns:
+        Esquema y datos de la tabla
+    """
+    try:
+        data = db_service.preview_table(table_name, limit)
+        return {
+            'success': True,
+            'datos': data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@db_router.post("/query", dependencies=[Depends(require_admin)])
+async def execute_query(query: str = Body(..., embed=True)):
+    """
+    Ejecuta una consulta SQL de solo lectura (SELECT)
+    Solo accesible por administradores
+    
+    Args:
+        query: Consulta SQL (solo SELECT permitido)
+        
+    Returns:
+        Resultados de la consulta
+        
+    Raises:
+        HTTPException 400: Si la consulta no es válida
+        HTTPException 500: Si hay error en la ejecución
+    """
+    try:
+        results = db_service.execute_query(query)
+        return {
+            'success': True,
+            'datos': {
+                'query': query,
+                'rows': len(results),
+                'results': results
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@db_router.get("/schema/{table_name}", dependencies=[Depends(require_admin)])
+async def get_table_schema(table_name: str = Path(..., description="Nombre de la tabla")):
+    """
+    Obtiene el esquema (estructura) de una tabla
+    Solo accesible por administradores
+    
+    Args:
+        table_name: Nombre de la tabla
+        
+    Returns:
+        Esquema de la tabla con nombres y tipos de columnas
+    """
+    try:
+        schema = db_service.get_table_schema(table_name)
+        return {
+            'success': True,
+            'datos': {
+                'table': table_name,
+                'columns': schema
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========================================
 # INCLUIR TODOS LOS ROUTERS
 # ========================================
 
@@ -1147,4 +1261,5 @@ router.include_router(estadisticas_router)
 router.include_router(notificaciones_router)
 router.include_router(email_router)
 router.include_router(triggers_router)
+router.include_router(db_router)
 

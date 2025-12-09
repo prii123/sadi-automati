@@ -204,15 +204,13 @@ function renderVencimientosChart(certificados, resoluciones, documentos) {
  * @param {string} estado - Estado (vencidos, por_vencer, vigentes)
  */
 function filterEmpresasByVencimiento(modulo, estado) {
-    // Cambiar a la vista de empresas
-    switchView('empresas');
+    // Establecer el filtro pendiente ANTES de cambiar de vista
+    if (typeof pendingFilter !== 'undefined') {
+        pendingFilter = { modulo, estado };
+    }
     
-    // Esperar a que la vista se cargue y aplicar el filtro
-    setTimeout(() => {
-        if (typeof applyVencimientoFilter === 'function') {
-            applyVencimientoFilter(modulo, estado);
-        }
-    }, 100);
+    // Cambiar a la vista de empresas (esto llamará a loadEmpresas que aplicará el filtro)
+    switchView('empresas');
 }
 
 /**

@@ -78,7 +78,8 @@ function updatePageTitle(viewName) {
         'empresas': 'Gestión de Empresas',
         'notificaciones': 'Notificaciones',
         'triggers': 'Configuración de Triggers',
-        'formulario': isEditMode ? 'Editar Empresa' : 'Nueva Empresa'
+        'formulario': isEditMode ? 'Editar Empresa' : 'Nueva Empresa',
+        'database': 'Database Viewer'
     };
 
     const pageTitle = document.getElementById('page-title');
@@ -104,6 +105,11 @@ function loadViewData(viewName) {
             break;
         case 'triggers':
             loadTriggers();
+            break;
+        case 'database':
+            if (typeof loadDatabaseViewer === 'function') {
+                loadDatabaseViewer();
+            }
             break;
         case 'formulario':
             if (!isEditMode) {

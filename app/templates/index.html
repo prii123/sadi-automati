@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión de Facturación</title>
     <link rel="stylesheet" href="../static/css/styles.css">
+    <link rel="stylesheet" href="../static/css/database.css">
     <script>
         // Configuración de variables de entorno para el frontend
         window.API_BASE_URL = '${API_BASE_URL}' || 'http://localhost:5000/api';
@@ -35,7 +36,10 @@
                     <span class="icon">➕</span> Nueva Empresa
                 </a></li>
                 <li><a href="#" data-view="importacion" class="nav-link">
-                    <span class="icon">📥</span> Importar Excel
+                    <span class="icon">📅</span> Importar Excel
+                </a></li>
+                <li><a href="#" data-view="database" class="nav-link" id="nav-database">
+                    <span class="icon">🗄</span> Database Viewer
                 </a></li>
             </ul>
             <div class="user-section">
@@ -297,6 +301,92 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Vista Database Viewer (Solo Admin) -->
+            <div id="view-database" class="view">
+                <div class="card">
+                    <h2>🗄 Visor de Base de Datos</h2>
+                    <p class="text-muted">Visualiza y consulta las tablas de la base de datos (solo administradores)</p>
+                </div>
+
+                <div class="db-viewer-container">
+                    <!-- Sección de tablas -->
+                    <div class="db-section">
+                        <h3>📊 Tablas Disponibles</h3>
+                        <div id="db-tables-list">
+                            <!-- Las tablas se cargarán aquí -->
+                        </div>
+                    </div>
+
+                    <!-- Sección de datos de tabla -->
+                    <div class="db-section">
+                        <h3>📊 Datos de Tabla</h3>
+                        <div id="db-table-data">
+                            <p class="no-data">Selecciona una tabla para ver sus datos</p>
+                        </div>
+                    </div>
+
+                    <!-- Sección de consultas personalizadas -->
+                    <div class="db-section">
+                        <h3>🔍 Consultas SQL (Solo SELECT)</h3>
+                        <div class="db-query-editor">
+                            <textarea id="db-query-input" 
+                                      class="db-query-textarea" 
+                                      placeholder="SELECT * FROM empresas LIMIT 10;"
+                                      rows="5"></textarea>
+                            <button class="btn btn-primary" onclick="executeCustomQuery()">
+                                ▶️ Ejecutar Consulta
+                            </button>
+                        </div>
+                        <div id="db-query-results">
+                            <!-- Los resultados se mostrarán aquí -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vista Database Viewer (Solo Admin) -->
+            <div id="view-database" class="view">
+                <div class="card">
+                    <h2>🗄 Visor de Base de Datos</h2>
+                    <p class="text-muted">Visualiza y consulta las tablas de la base de datos (solo administradores)</p>
+                </div>
+
+                <div class="db-viewer-container">
+                    <!-- Sección de tablas -->
+                    <div class="db-section card">
+                        <h3>📊 Tablas Disponibles</h3>
+                        <div id="db-tables-list">
+                            <!-- Las tablas se cargarán aquí -->
+                        </div>
+                    </div>
+
+                    <!-- Sección de datos de tabla -->
+                    <div class="db-section card">
+                        <h3>📊 Datos de Tabla</h3>
+                        <div id="db-table-data">
+                            <p class="no-data">Selecciona una tabla para ver sus datos</p>
+                        </div>
+                    </div>
+
+                    <!-- Sección de consultas personalizadas -->
+                    <div class="db-section card">
+                        <h3>🔍 Consultas SQL (Solo SELECT)</h3>
+                        <div class="db-query-editor">
+                            <textarea id="db-query-input" 
+                                      class="db-query-textarea" 
+                                      placeholder="SELECT * FROM empresas LIMIT 10;"
+                                      rows="5"></textarea>
+                            <button class="btn btn-primary" onclick="executeCustomQuery()">
+                                ▶️ Ejecutar Consulta
+                            </button>
+                        </div>
+                        <div id="db-query-results">
+                            <!-- Los resultados se mostrarán aquí -->
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -428,6 +518,7 @@
     <script src="../static/js/notificaciones.js"></script>
     <script src="../static/js/triggers.js"></script>
     <script src="../static/js/historial.js"></script>
+    <script src="../static/js/database.js"></script>
     <script src="../static/js/formulario.js"></script>
     <script src="../static/js/importacion.js"></script>
     <script src="../static/js/main.js"></script>
@@ -438,6 +529,16 @@
             const usuario = Auth.getUsuario();
             if (usuario) {
                 document.getElementById('user-name').textContent = usuario.nombre || usuario.username;
+                
+                // Mostrar/ocultar Database Viewer según rol
+                const navDatabase = document.getElementById('nav-database');
+                if (navDatabase) {
+                    if (usuario.rol === 'admin') {
+                        navDatabase.style.display = 'block';
+                    } else {
+                        navDatabase.style.display = 'none';
+                    }
+                }
             }
         });
     </script>
