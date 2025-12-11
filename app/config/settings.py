@@ -14,14 +14,14 @@ class Settings:
     """
     
     # Base de datos
-    DB_TYPE: str = os.getenv('DB_TYPE', 'sqlite')  # 'sqlite' o 'mysql'
+    DB_TYPE: str = os.getenv('DB_TYPE', 'sqlite')  # 'sqlite', 'mysql' o 'postgresql'
     DB_PATH: str = os.getenv('DB_PATH', 'data/facturacion.db')  # Para SQLite
     
-    # MySQL (si se usa)
+    # MySQL/PostgreSQL (si se usa)
     DB_HOST: str = os.getenv('DB_HOST', 'localhost')
-    DB_PORT: int = int(os.getenv('DB_PORT', '3306'))
+    DB_PORT: int = int(os.getenv('DB_PORT', '5432'))  # 5432 para PostgreSQL, 3306 para MySQL
     DB_NAME: str = os.getenv('DB_NAME', 'facturacion')
-    DB_USER: str = os.getenv('DB_USER', 'root')
+    DB_USER: str = os.getenv('DB_USER', 'postgres')
     DB_PASSWORD: str = os.getenv('DB_PASSWORD', '')
     
     # API
@@ -56,6 +56,8 @@ class Settings:
             return self.DB_PATH
         elif self.DB_TYPE == 'mysql':
             return f"mysql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        elif self.DB_TYPE == 'postgresql':
+            return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         else:
             raise ValueError(f"Tipo de base de datos no soportado: {self.DB_TYPE}")
     

@@ -5,6 +5,7 @@ Patrón Factory para desacoplar la creación de repositorios
 from typing import Protocol
 from app.config.settings import Settings
 from app.repositories.empresa_repository import EmpresaRepository
+from app.repositories.postgresql_empresa_repository import PostgreSQLEmpresaRepository
 
 
 class IRepositoryFactory(Protocol):
@@ -51,6 +52,15 @@ class DatabaseFactory:
         if db_type == 'sqlite':
             return EmpresaRepository(self.settings.DB_PATH)
         
+        elif db_type == 'postgresql':
+            return PostgreSQLEmpresaRepository(
+                host=self.settings.DB_HOST,
+                port=self.settings.DB_PORT,
+                database=self.settings.DB_NAME,
+                user=self.settings.DB_USER,
+                password=self.settings.DB_PASSWORD
+            )
+        
         elif db_type == 'mysql':
             # Aquí irá la implementación de MySQL cuando esté lista
             # from app.repositories.mysql_empresa_repository import MySQLEmpresaRepository
@@ -70,7 +80,7 @@ class DatabaseFactory:
         else:
             raise ValueError(
                 f"Tipo de base de datos no soportado: {db_type}. "
-                f"Tipos soportados: sqlite, mysql"
+                f"Tipos soportados: sqlite, postgresql, mysql"
             )
     
     @classmethod
