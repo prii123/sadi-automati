@@ -60,7 +60,13 @@ def init_services(emp_service: EmpresaService, stat_service: EstadisticasService
     # Inicializar servicio de base de datos
     from app.config.settings import Settings
     settings = Settings()
-    db_service = DatabaseService(settings.DB_PATH)
+    db_service = DatabaseService(
+        host=settings.DB_HOST,
+        port=settings.DB_PORT,
+        database=settings.DB_NAME,
+        user=settings.DB_USER,
+        password=settings.DB_PASSWORD
+    )
 
 
 def normalize_response(resultado: Dict) -> Dict:
