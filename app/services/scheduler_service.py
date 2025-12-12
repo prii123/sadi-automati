@@ -36,7 +36,13 @@ class TriggerScheduler:
         """Inicializa el scheduler"""
         self.scheduler = BackgroundScheduler(timezone='America/Bogota')
         self.settings = Settings.from_env()
-        self.trigger_repository = TriggerRepository(self.settings.DB_PATH)
+        self.trigger_repository = TriggerRepository(
+            host=self.settings.DB_HOST,
+            port=self.settings.DB_PORT,
+            database=self.settings.DB_NAME,
+            user=self.settings.DB_USER,
+            password=self.settings.DB_PASSWORD
+        )
         self.trigger_service = TriggerService(self.trigger_repository)
         self.is_running = False
         

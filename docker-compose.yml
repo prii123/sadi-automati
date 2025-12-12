@@ -31,6 +31,11 @@ services:
       - NOTIFICACION_DIAS_ANTICIPACION=${NOTIFICACION_DIAS_ANTICIPACION:-30}
       # Seguridad
       - SECRET_KEY=${SECRET_KEY}
+      # Usuario Root Inicial
+      - ROOT_USER=${ROOT_USER:-admin}
+      - ROOT_PASSWORD=${ROOT_PASSWORD:-admin123}
+      - ROOT_EMAIL=${ROOT_EMAIL:-admin@sadi.com}
+      - ROOT_NAME=${ROOT_NAME:-Administrador}
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

@@ -26,7 +26,8 @@ def probar_sistema():
     
     print(f"\n✓ Configuración cargada")
     print(f"  Base de datos: {settings.DB_TYPE}")
-    print(f"  Ubicación: {settings.DB_PATH}")
+    print(f"  Host: {settings.DB_HOST}:{settings.DB_PORT}")
+    print(f"  Database: {settings.DB_NAME}")
     
     # Prueba 1: Obtener empresas activas
     print("\n" + "-" * 80)

@@ -22,7 +22,8 @@ def crear_datos_ejemplo():
     service = EmpresaService(repository)
     
     print(f"\n✓ Base de datos: {settings.DB_TYPE}")
-    print(f"✓ Ubicación: {settings.DB_PATH}")
+    print(f"✓ Host: {settings.DB_HOST}:{settings.DB_PORT}")
+    print(f"✓ Database: {settings.DB_NAME}")
     
     # Datos de ejemplo
     empresas_ejemplo = [

@@ -108,12 +108,24 @@ def create_app() -> FastAPI:
     stats_service = EstadisticasService(repository)
     notif_service = NotificacionService(repository)
     
-    # Inicializar servicio de triggers
-    trigger_repository = TriggerRepository(settings.DB_PATH)
+    # Inicializar servicio de triggers con PostgreSQL
+    trigger_repository = TriggerRepository(
+        host=settings.DB_HOST,
+        port=settings.DB_PORT,
+        database=settings.DB_NAME,
+        user=settings.DB_USER,
+        password=settings.DB_PASSWORD
+    )
     trigger_service = TriggerService(trigger_repository)
     
-    # Inicializar servicio de autenticación
-    usuario_repository = UsuarioRepository(settings.DB_PATH)
+    # Inicializar servicio de autenticación con PostgreSQL
+    usuario_repository = UsuarioRepository(
+        host=settings.DB_HOST,
+        port=settings.DB_PORT,
+        database=settings.DB_NAME,
+        user=settings.DB_USER,
+        password=settings.DB_PASSWORD
+    )
     auth_service = AuthService(usuario_repository)
     
     # Inicializar servicios en las rutas

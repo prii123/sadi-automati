@@ -21,7 +21,13 @@ def test_historial():
     
     # Inicializar
     settings = Settings.from_env()
-    repository = TriggerRepository(settings.DB_PATH)
+    repository = TriggerRepository(
+        host=settings.DB_HOST,
+        port=settings.DB_PORT,
+        database=settings.DB_NAME,
+        user=settings.DB_USER,
+        password=settings.DB_PASSWORD
+    )
     service = TriggerService(repository)
     
     print("\n✓ Servicios inicializados")

@@ -199,7 +199,13 @@ def registrar_ejecucion_trigger(trigger_id, estado, notificaciones, empresas, er
     """Registra la ejecución de un trigger en el historial"""
     try:
         settings = Settings.from_env()
-        trigger_repo = TriggerRepository(settings.DB_PATH)
+        trigger_repo = TriggerRepository(
+            host=settings.DB_HOST,
+            port=settings.DB_PORT,
+            database=settings.DB_NAME,
+            user=settings.DB_USER,
+            password=settings.DB_PASSWORD
+        )
         trigger_service = TriggerService(trigger_repo)
         
         datos = {

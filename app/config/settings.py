@@ -13,13 +13,10 @@ class Settings:
     Puede cargar valores desde variables de entorno o usar valores por defecto.
     """
     
-    # Base de datos
-    DB_TYPE: str = os.getenv('DB_TYPE', 'sqlite')  # 'sqlite', 'mysql' o 'postgresql'
-    DB_PATH: str = os.getenv('DB_PATH', 'data/facturacion.db')  # Para SQLite
-    
-    # MySQL/PostgreSQL (si se usa)
+    # Base de datos PostgreSQL
+    DB_TYPE: str = os.getenv('DB_TYPE', 'postgresql')  # Solo PostgreSQL
     DB_HOST: str = os.getenv('DB_HOST', 'localhost')
-    DB_PORT: int = int(os.getenv('DB_PORT', '5432'))  # 5432 para PostgreSQL, 3306 para MySQL
+    DB_PORT: int = int(os.getenv('DB_PORT', '5432'))
     DB_NAME: str = os.getenv('DB_NAME', 'facturacion')
     DB_USER: str = os.getenv('DB_USER', 'postgres')
     DB_PASSWORD: str = os.getenv('DB_PASSWORD', '')
@@ -40,6 +37,12 @@ class Settings:
     # Seguridad
     SECRET_KEY: str = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     
+    # Usuario Root Inicial
+    ROOT_USER: str = os.getenv('ROOT_USER', 'admin')
+    ROOT_PASSWORD: str = os.getenv('ROOT_PASSWORD', 'admin123')
+    ROOT_EMAIL: str = os.getenv('ROOT_EMAIL', 'admin@sadi.com')
+    ROOT_NAME: str = os.getenv('ROOT_NAME', 'Administrador')
+    
     @classmethod
     def from_env(cls) -> 'Settings':
         """Crea una instancia de Settings desde variables de entorno"""
@@ -47,19 +50,12 @@ class Settings:
     
     def get_db_connection_string(self) -> str:
         """
-        Obtiene la cadena de conexión según el tipo de base de datos
+        Obtiene la cadena de conexión PostgreSQL
         
         Returns:
             Cadena de conexión
         """
-        if self.DB_TYPE == 'sqlite':
-            return self.DB_PATH
-        elif self.DB_TYPE == 'mysql':
-            return f"mysql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-        elif self.DB_TYPE == 'postgresql':
-            return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-        else:
-            raise ValueError(f"Tipo de base de datos no soportado: {self.DB_TYPE}")
+        return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
     
     def to_dict(self) -> dict:
         """Convierte la configuración a diccionario (ocultando datos sensibles)"""

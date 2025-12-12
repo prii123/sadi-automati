@@ -1,23 +1,29 @@
 """
 Servicio para operaciones de base de datos y consultas SQL
 """
-import sqlite3
+import psycopg2
+import psycopg2.extras
 from typing import List, Dict, Any, Optional
 from contextlib import contextmanager
 from app.config.settings import Settings
 
 
 class DatabaseService:
-    """Servicio para ejecutar consultas SQL de lectura"""
+    """Servicio para ejecutar consultas SQL de lectura en PostgreSQL"""
     
-    def __init__(self, db_path: str):
-        self.db_path = db_path
+    def __init__(self, host: str, port: int, database: str, user: str, password: str):
+        self.connection_params = {
+            'host': host,
+            'port': port,
+            'database': database,
+            'user': user,
+            'password': password
+        }
     
     @contextmanager
     def get_connection(self):
         """Context manager para conexiones a la base de datos"""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row  # Para obtener resultados como diccionarios
+        conn = psycopg2.connect(**self.connection_params)
         try:
             yield conn
         finally:
@@ -49,35 +55,37 @@ class DatabaseService:
                 raise ValueError(f"Palabra prohibida encontrada: {word}")
         
         with self.get_connection() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             cursor.execute(query)
             
-            # Obtener nombres de columnas
-            columns = [description[0] for description in cursor.description]
-            
             # Convertir resultados a lista de diccionarios
-            results = []
-            for row in cursor.fetchall():
-                results.append(dict(zip(columns, row)))
+            results = [dict(row) for row in cursor.fetchall()]
             
             return results
     
     def get_tables(self) -> List[str]:
-        """Obtiene la lista de tablas en la base de datos"""
-        query = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        """Obtiene la lista de tablas en la base de datos PostgreSQL"""
+        query = "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
         results = self.execute_query(query)
-        return [r['name'] for r in results]
+        return [r['tablename'] for r in results]
     
     def get_table_schema(self, table_name: str) -> List[Dict[str, Any]]:
-        """Obtiene el esquema de una tabla"""
-        query = f"PRAGMA table_info({table_name})"
+        """Obtiene el esquema de una tabla en PostgreSQL"""
+        query = f"""
+            SELECT 
+                column_name, 
+                data_type, 
+                is_nullable,
+                column_default
+            FROM information_schema.columns 
+            WHERE table_schema = 'public' 
+            AND table_name = '{table_name}'
+            ORDER BY ordinal_position
+        """
         with self.get_connection() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             cursor.execute(query)
-            columns = [description[0] for description in cursor.description]
-            results = []
-            for row in cursor.fetchall():
-                results.append(dict(zip(columns, row)))
+            results = [dict(row) for row in cursor.fetchall()]
             return results
     
     def get_table_count(self, table_name: str) -> int:
