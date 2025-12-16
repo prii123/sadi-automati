@@ -38,9 +38,6 @@
                 <li><a href="#" data-view="importacion" class="nav-link">
                     <span class="icon">📅</span> Importar Excel
                 </a></li>
-                <li><a href="#" data-view="database" class="nav-link" id="nav-database">
-                    <span class="icon">🗄</span> Database Viewer
-                </a></li>
             </ul>
             <div class="user-section">
                 <div class="user-info" id="user-info">
@@ -523,24 +520,5 @@
     <script src="../static/js/importacion.js"></script>
     <script src="../static/js/main.js"></script>
     
-    <script>
-        // Mostrar información del usuario en la UI
-        document.addEventListener('DOMContentLoaded', () => {
-            const usuario = Auth.getUsuario();
-            if (usuario) {
-                document.getElementById('user-name').textContent = usuario.nombre || usuario.username;
-                
-                // Mostrar/ocultar Database Viewer según rol
-                const navDatabase = document.getElementById('nav-database');
-                if (navDatabase) {
-                    if (usuario.rol === 'admin') {
-                        navDatabase.style.display = 'block';
-                    } else {
-                        navDatabase.style.display = 'none';
-                    }
-                }
-            }
-        });
-    </script>
 </body>
 </html>
